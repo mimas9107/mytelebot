@@ -13,6 +13,7 @@
 - Environment: `Node`
 - Region: 依你的主要使用地選最近區域
 - Build Command: `npm install && npm run build`
+- Repo 內建置腳本已包含 `prisma generate`，不需要另外在 Render 手動追加
 - Start Command: `npm run start`
 
 ### Persistent Disk

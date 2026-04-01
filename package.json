@@ -11,6 +11,9 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace @mytelebot/web",
+    "prisma:generate": "prisma generate",
+    "postinstall": "npm run prisma:generate",
+    "prebuild": "npm run prisma:generate",
     "build": "npm run build --workspace @mytelebot/web",
     "start": "npm run start --workspace @mytelebot/web",
     "lint": "npm run lint --workspace @mytelebot/web",
