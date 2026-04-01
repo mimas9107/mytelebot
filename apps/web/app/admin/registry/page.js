@@ -20,6 +20,8 @@ import {
   TargetCreateForm
 } from "@/app/admin/registry/forms";
 
+export const dynamic = "force-dynamic";
+
 export default async function RegistryPage() {
   await requireAdminSession();
   const { targets, devices, commands } = await listRegistryData();

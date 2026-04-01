@@ -13,6 +13,8 @@ import {
   ProviderTestForm
 } from "@/app/admin/providers/form";
 
+export const dynamic = "force-dynamic";
+
 function formatTimestamp(value) {
   return new Intl.DateTimeFormat("zh-TW", {
     year: "numeric",

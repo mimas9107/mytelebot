@@ -3,6 +3,8 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { logoutAction } from "@/app/login/actions";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const user = await requireAdminSession();
   const [providerCount, targetCount, deviceCount, auditCount] =

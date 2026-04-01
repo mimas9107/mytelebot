@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireAdminSession } from "@/lib/auth/session";
 import { listAuditLogs } from "@/lib/audit";
 
+export const dynamic = "force-dynamic";
+
 function firstValue(value) {
   if (Array.isArray(value)) {
     return value[0] || "";

@@ -6,6 +6,8 @@ import {
   BackupRestoreForm
 } from "@/app/admin/system/form";
 
+export const dynamic = "force-dynamic";
+
 function prettyDate(value) {
   return new Intl.DateTimeFormat("zh-TW", {
     year: "numeric",

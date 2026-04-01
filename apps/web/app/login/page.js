@@ -4,6 +4,8 @@ import { ensureBootstrapAdmin } from "@/lib/auth/bootstrap";
 import { getSessionUser } from "@/lib/auth/session";
 import { LoginForm } from "@/app/login/form";
 
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage() {
   const bootstrap = await ensureBootstrapAdmin();
   const sessionUser = await getSessionUser();

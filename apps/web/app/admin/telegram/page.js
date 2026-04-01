@@ -10,6 +10,8 @@ import {
   TelegramAccountForm
 } from "@/app/admin/telegram/form";
 
+export const dynamic = "force-dynamic";
+
 export default async function TelegramAdminPage() {
   await requireAdminSession();
   const [accounts, users] = await Promise.all([
