@@ -1,11 +1,33 @@
 # Render 部署需求與環境變數
 
 ## 1. 部署模式
-第一版採：
+目前支援兩種 Render 部署模式：
+
+### A. Render 付費版正式模式
 - `Render Web Service`
 - `Persistent Disk`
 - `Next.js` server mode
 - `SQLite` 作為主資料庫
+
+適用情境：
+- 你要保留資料
+- 你要讓 redeploy / restart 後資料仍存在
+- 你願意使用 Render 付費 instance
+
+### B. Render 免費版 demo 模式
+- `Render Web Service`
+- 無 `Persistent Disk`
+- `Next.js` server mode
+- `SQLite` 作為暫時性資料庫
+
+適用情境：
+- 你只想先驗證登入、後台頁面與 webhook 流程
+- 你接受 redeploy / restart / instance 重建後資料消失
+
+限制：
+- 不保證資料持久化
+- 不適合正式環境
+- `backup/restore` 僅有流程驗證意義，不具真正持久化保證
 
 ## 2. Render 服務設定建議
 
@@ -15,16 +37,26 @@
 - Build Command: `npm install && npm run build`
 - Repo 內建置腳本已包含 `prisma generate`，不需要另外在 Render 手動追加
 - Start Command: `npm run start`
-- Repo 啟動腳本已包含 `prisma migrate deploy`，第一次掛上新的 Persistent Disk 時會自動建立資料表
+- Repo 啟動腳本已包含 `prisma migrate deploy`
+- 第一次啟動空白 SQLite 檔案時，會自動建立資料表
 
-### Persistent Disk
+### 付費版 Persistent Disk
 - 掛載路徑建議：`/var/data`
 - SQLite 路徑：`/var/data/mytelebot.sqlite`
 - 備份目錄：`/var/data/backups`
 
+### 免費版 demo 路徑
+- 建議使用絕對路徑
+- 建議 SQLite 路徑：`/opt/render/project/src/data/mytelebot.sqlite`
+- 建議備份目錄：`/opt/render/project/src/data/backups`
+
+注意：
+- 不要使用 `file:./data/mytelebot.sqlite`
+- 原因是 `prisma migrate deploy` 與 `next start` 的工作目錄不同，相對路徑可能指到不同檔案
+
 ## 3. 環境變數建議
 
-### 必填
+### 付費版必填
 ```bash
 NODE_VERSION=$NODE_VERSION
 NODE_ENV=production
@@ -34,6 +66,29 @@ RENDER_EXTERNAL_URL=https://your-render-domain.onrender.com
 DATABASE_URL=file:/var/data/mytelebot.sqlite
 SQLITE_FILE_PATH=/var/data/mytelebot.sqlite
 SQLITE_BACKUP_DIR=/var/data/backups
+
+ADMIN_USER=
+ADMIN_PASSWORD=
+
+SESSION_SECRET=
+APP_ENCRYPTION_KEY=
+
+TELEGRAM_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
+
+HOME_GATEWAY_SHARED_SECRET=
+```
+
+### 免費版 demo 必填
+```bash
+NODE_VERSION=$NODE_VERSION
+NODE_ENV=production
+APP_URL=https://your-render-domain.onrender.com
+RENDER_EXTERNAL_URL=https://your-render-domain.onrender.com
+
+DATABASE_URL=file:/opt/render/project/src/data/mytelebot.sqlite
+SQLITE_FILE_PATH=/opt/render/project/src/data/mytelebot.sqlite
+SQLITE_BACKUP_DIR=/opt/render/project/src/data/backups
 
 ADMIN_USER=
 ADMIN_PASSWORD=
@@ -130,6 +185,7 @@ mytelebot-20260331-103000.sqlite
 
 ## 6. 需要避免的做法
 - 把 SQLite 放在非 Persistent Disk 路徑
+- 在 Render 免費版使用相對 SQLite 路徑
 - 用多個 Render instances 共用同一個 SQLite
 - 將 `ADMIN_PASSWORD` 當成長期唯一登入真相而不寫入 DB
 - 讓未登入使用者可下載 DB 備份

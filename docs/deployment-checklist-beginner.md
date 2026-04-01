@@ -16,7 +16,8 @@
 
 原因：
 - 目前主資料庫是 `SQLite`
-- 需要 `Persistent Disk`
+- 若你使用付費版，可搭配 `Persistent Disk`
+- 若你使用免費版，只適合 demo，不適合持久化資料
 - `Render` 比較符合這個原型的運作方式
 
 ## 2. 本機條件檢查
@@ -133,11 +134,22 @@ Start Command: npm run start
 - 目前是 `SQLite`
 - 不適合多副本共用
 
+### 4.6 免費版或付費版先選清楚
+- 若你是 Render 付費版：使用 `Persistent Disk`，路徑用 `/var/data/...`
+- 若你是 Render 免費版：沒有 `Persistent Disk`，只能當 demo 環境
+- 免費版請使用絕對 SQLite 路徑，例如 `/opt/render/project/src/data/mytelebot.sqlite`
+- 免費版不要使用 `file:./data/mytelebot.sqlite`，因為 build / migrate / runtime 的工作目錄可能不同
+
 ## 5. Persistent Disk 檢查
 這是新手最容易漏掉、也最容易導致資料消失的地方。
 
-### 5.1 一定要掛 Persistent Disk
+### 5.1 付費版一定要掛 Persistent Disk
+如果你要保留資料，就一定要掛 disk。
 如果沒掛 disk，你的 SQLite 可能在重啟或重新部署後消失。
+
+如果你是免費版：
+- 這一節不能照做，因為沒有 disk 可掛
+- 你必須接受資料不保留
 
 ### 5.2 掛載路徑
 建議：
@@ -158,9 +170,10 @@ SQLITE_BACKUP_DIR=/var/data/backups
 不要把 SQLite 放在：
 - 專案原始碼目錄的暫時檔區
 - 沒有掛 disk 的路徑
+- Render 免費版的相對路徑，例如 `file:./data/mytelebot.sqlite`
 
 ## 6. Render 環境變數 Checklist
-部署前，至少檢查下面都有填：
+如果你是 Render 付費版，部署前至少檢查下面都有填：
 
 ```bash
 NODE_VERSION=$NODE_VERSION
@@ -181,9 +194,31 @@ TELEGRAM_TOKEN=...
 TELEGRAM_WEBHOOK_SECRET=...
 ```
 
+如果你是 Render 免費版 demo，請改成：
+
+```bash
+NODE_VERSION=$NODE_VERSION
+NODE_ENV=production
+APP_URL=https://your-render-domain.onrender.com
+RENDER_EXTERNAL_URL=https://your-render-domain.onrender.com
+
+DATABASE_URL=file:/opt/render/project/src/data/mytelebot.sqlite
+SQLITE_FILE_PATH=/opt/render/project/src/data/mytelebot.sqlite
+SQLITE_BACKUP_DIR=/opt/render/project/src/data/backups
+
+ADMIN_USER=...
+ADMIN_PASSWORD=...
+SESSION_SECRET=...
+APP_ENCRYPTION_KEY=...
+
+TELEGRAM_TOKEN=...
+TELEGRAM_WEBHOOK_SECRET=...
+```
+
 ### 新手最常犯錯
 - `APP_URL` 還留 `localhost`
 - `DATABASE_URL` 還指向本機路徑
+- 在免費版使用相對 SQLite 路徑
 - 忘了 `SESSION_SECRET`
 - 忘了 `APP_ENCRYPTION_KEY`
 - `TELEGRAM_WEBHOOK_SECRET` 本機跟雲端不一致
@@ -240,7 +275,13 @@ TELEGRAM_WEBHOOK_SECRET=...
 - recent events 有出來
 
 ### 8.4 檢查 SQLite 實際落點
-你要確認應用真的在用 `/var/data/mytelebot.sqlite`，不是回退到別的暫時路徑。
+你要確認應用真的在用你設定的絕對路徑。
+
+付費版預期：
+- `/var/data/mytelebot.sqlite`
+
+免費版 demo 預期：
+- `/opt/render/project/src/data/mytelebot.sqlite`
 
 ## 9. Telegram webhook 掛接 Checklist
 這是部署後最關鍵的一步。
