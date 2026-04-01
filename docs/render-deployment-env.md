@@ -15,6 +15,7 @@
 - Build Command: `npm install && npm run build`
 - Repo 內建置腳本已包含 `prisma generate`，不需要另外在 Render 手動追加
 - Start Command: `npm run start`
+- Repo 啟動腳本已包含 `prisma migrate deploy`，第一次掛上新的 Persistent Disk 時會自動建立資料表
 
 ### Persistent Disk
 - 掛載路徑建議：`/var/data`

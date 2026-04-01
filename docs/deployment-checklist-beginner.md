@@ -119,6 +119,11 @@ Build Command: npm install && npm run build
 Start Command: npm run start
 ```
 
+補充：
+- repo 目前會在 build 前自動執行 `prisma generate`
+- repo 目前會在 start 前自動執行 `prisma migrate deploy`
+- 第一次使用新的 Render Persistent Disk 時，資料表會在 service 啟動前建立
+
 ### 4.4 Region
 選離你使用地最近的區域。
 
