@@ -1,0 +1,36 @@
+{
+  "name": "mytelebot",
+  "version": "1.0.3",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": "24.13.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @mytelebot/web",
+    "build": "npm run build --workspace @mytelebot/web",
+    "start": "npm run start --workspace @mytelebot/web",
+    "lint": "npm run lint --workspace @mytelebot/web",
+    "mock:device": "python3 scripts/mock_device_server.py",
+    "mock:llm": "python3 scripts/mock_llm_server.py",
+    "smoke:webhook": "bash scripts/test_webhook.sh",
+    "test:integration:webhook": "python3 scripts/test_webhook_integration.py",
+    "test:contract:payload": "node --test scripts/test_contract_payload_template.mjs",
+    "test:fixtures:alias": "node --test scripts/test_alias_fixtures.mjs",
+    "test:unit:llm": "node --test scripts/test_unit_llm.mjs",
+    "test:unit:registry": "node --test scripts/test_unit_registry.mjs",
+    "test:unit:dispatcher": "node --test scripts/test_unit_dispatcher.mjs",
+    "test:unit:telegram": "node --test scripts/test_unit_telegram.mjs",
+    "test:core": "npm run test:contract:payload && npm run test:fixtures:alias && npm run test:unit:llm && npm run test:unit:registry && npm run test:unit:dispatcher && npm run test:unit:telegram",
+    "test:report:core": "bash scripts/run_test_core_with_report.sh",
+    "mock:telegram": "python3 scripts/mock_telegram_server.py",
+    "test:integration:message-flow": "python3 scripts/test_message_flow_integration.py",
+    "test:report:message-flow": "bash scripts/run_message_flow_integration_with_report.sh"
+  },
+  "devDependencies": {
+    "prisma": "^7.6.0"
+  }
+}

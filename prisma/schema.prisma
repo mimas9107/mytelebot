@@ -1,0 +1,188 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id               String            @id @default(cuid())
+  username         String            @unique
+  email            String?           @unique
+  name             String?
+  passwordHash     String
+  role             String            @default("admin")
+  status           String            @default("active")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  telegramAccounts TelegramAccount[]
+  auditLogs        AuditLog[]
+}
+
+model TelegramAccount {
+  id             String   @id @default(cuid())
+  userId         String?
+  telegramUserId String   @unique
+  username       String?
+  displayName    String?
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model TelegramUpdate {
+  id               String   @id @default(cuid())
+  telegramUpdateId String   @unique
+  telegramUserId   String?
+  messageText      String?
+  createdAt        DateTime @default(now())
+}
+
+model PendingTelegramAction {
+  id             String       @id @default(cuid())
+  token          String       @unique
+  telegramUserId String
+  chatId         String
+  commandId      String
+  providerId     String?
+  rawInput       String
+  actionJson     String
+  status         String       @default("pending")
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  confirmedAt    DateTime?
+  cancelledAt    DateTime?
+  executedAt     DateTime?
+  command        DeviceCommand @relation(fields: [commandId], references: [id], onDelete: Cascade)
+  provider       LlmProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([telegramUserId])
+  @@index([commandId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model LlmProvider {
+  id               String     @id @default(cuid())
+  providerKey      String     @unique
+  name             String
+  baseUrl          String
+  model            String
+  extraHeadersJson String?
+  capabilitiesJson String?
+  apiKeySecretId   String?
+  status           String     @default("inactive")
+  isDefault        Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  apiKeySecret     Secret?    @relation("ProviderApiKey", fields: [apiKeySecretId], references: [id], onDelete: SetNull)
+  auditLogs        AuditLog[]
+  pendingActions   PendingTelegramAction[]
+
+  @@index([apiKeySecretId])
+}
+
+model Secret {
+  id                String        @id @default(cuid())
+  secretType        String
+  name              String?
+  encryptedValue    String
+  createdAt         DateTime      @default(now())
+  rotatedAt         DateTime?
+  providerApiKeys   LlmProvider[] @relation("ProviderApiKey")
+  targetAuthSecrets Target[]      @relation("TargetAuthSecret")
+}
+
+model Target {
+  id           String   @id @default(cuid())
+  targetKey    String   @unique
+  name         String
+  baseUrl      String
+  authType     String   @default("bearer")
+  authSecretId String?
+  timeoutMs    Int      @default(8000)
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  authSecret   Secret?  @relation("TargetAuthSecret", fields: [authSecretId], references: [id], onDelete: SetNull)
+  devices      Device[]
+
+  @@index([authSecretId])
+}
+
+model Device {
+  id          String          @id @default(cuid())
+  deviceKey   String          @unique
+  targetId    String
+  name        String
+  aliasesJson String?
+  type        String
+  description String?
+  status      String          @default("active")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  target      Target          @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  commands    DeviceCommand[]
+
+  @@index([targetId])
+}
+
+model DeviceCommand {
+  id                   String   @id @default(cuid())
+  deviceId             String
+  commandKey           String
+  aliasesJson          String?
+  label                String
+  method               String
+  path                 String
+  payloadTemplateJson  String?
+  argsSchemaJson       String?
+  confirmationRequired Boolean  @default(false)
+  cooldownSeconds      Int      @default(0)
+  status               String   @default("active")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  device               Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  pendingActions       PendingTelegramAction[]
+  executions           CommandExecution[]
+
+  @@unique([deviceId, commandKey])
+  @@index([deviceId])
+}
+
+model CommandExecution {
+  id         String        @id @default(cuid())
+  commandId  String
+  actorId    String?
+  status     String
+  reasonCode String?
+  createdAt  DateTime      @default(now())
+  command    DeviceCommand @relation(fields: [commandId], references: [id], onDelete: Cascade)
+
+  @@index([commandId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id               String       @id @default(cuid())
+  actorType        String
+  actorId          String?
+  userId           String?
+  providerId       String?
+  rawInput         String
+  parsedResultJson String?
+  executionStatus  String
+  errorMessage     String?
+  createdAt        DateTime     @default(now())
+  provider         LlmProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  user             User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([providerId])
+  @@index([createdAt])
+}

@@ -1,0 +1,36 @@
+name: test-core
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm exec -- prisma generate
+
+      - name: Run core test suite
+        run: npm run test:core
+
+      - name: Run full message-flow integration test
+        run: npm run test:integration:message-flow
+
+      - name: Build app
+        run: npm run build
