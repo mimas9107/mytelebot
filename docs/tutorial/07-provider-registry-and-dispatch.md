@@ -26,6 +26,21 @@
 - set default
 - test connection
 
+另外，provider 紀錄裡的 `capabilitiesJson` 不是隨便一包 JSON。
+目前比較重要的欄位有：
+
+- `capability_profile`
+- `json_output_mode`
+- `json_strict`
+
+它們會影響 `parseCommandWithLlm()` 組 request 的方式。
+
+例如：
+
+- 要不要要求 provider 回 JSON object
+- JSON 規則要不要更嚴格
+- 這個 provider 比較接近哪一種能力輪廓
+
 ### `llm.js`
 
 偏向執行面：
@@ -33,6 +48,15 @@
 - get active provider
 - call provider API
 - parse JSON result
+
+呼叫 provider 時還有一個實用的小容錯：
+
+- 如果 `baseUrl` 已經以 `/v1` 結尾，就直接接 `/chat/completions`
+- 否則會依序嘗試：
+  - `/v1/chat/completions`
+  - `/chat/completions`
+
+所以通常不用把完整 endpoint path 寫進 provider 設定。
 
 ## 3. `createProvider()` 是典型的管理邏輯
 
@@ -125,6 +149,15 @@ formData
 
 如果任何一步失敗，就不 dispatch。
 
+另外還有一個容錯設計：
+
+- 如果 `target_key` 解析錯了
+- 但 `device_key` 在所有 active target 中剛好只命中一台裝置
+
+系統會跨 target 幫你推斷出正確 target。
+
+但如果有多台裝置都可能符合，就不會自動推斷。
+
 這個模組是把「LLM 輸出」轉成「系統可接受的受控命令」的地方。
 
 ## 8. Dispatcher 模組在做什麼
@@ -149,6 +182,11 @@ formData
 - 用 payload template + args 產生實際 payload
 - 同時產生 masked request 供紀錄用
 
+這裡的 masked request，可以先理解成：
+
+- 真正送出的 request 裡有敏感資訊
+- 但寫 log 或顯示時，會把 secret 改成 `***`
+
 ### B. execute request
 
 函式：
@@ -172,6 +210,11 @@ target 目前支援：
 - `hmac`
 
 在 `applyAuth()` 裡會依不同類型把認證資訊套到 request 上。
+
+如果你第一次看到 `HMAC`，可以先把它理解成：
+
+- 用密鑰對請求內容做簽章
+- 讓對方知道這段請求沒有被偷偷改掉
 
 這一段很值得學，因為它把「同一種設備 dispatch 流程」和「不同認證機制」拆開了。
 
@@ -202,6 +245,13 @@ target 目前支援：
 
 - payload 結構由後端掌控
 - LLM 不會自由定義整個 JSON 結構
+
+再補一個小細節：
+
+- 如果 template value 完全就是 `{{temperature}}`
+  - 替換時會盡量保留原始型別，例如數字仍然是數字
+- 如果 template value 是 `set {{temperature}} degrees`
+  - 替換時就會變成字串
 
 ## 11. 一條完整的資料傳遞鏈
 

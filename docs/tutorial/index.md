@@ -15,6 +15,7 @@
 7. [07-provider-registry-and-dispatch.md](./07-provider-registry-and-dispatch.md)
 8. [08-api-inventory.md](./08-api-inventory.md)
 9. [09-how-to-read-the-code.md](./09-how-to-read-the-code.md)
+10. [10-environment-variables-and-glossary.md](./10-environment-variables-and-glossary.md)
 
 如果你只想先快速建立全貌，先讀：
 
@@ -38,6 +39,7 @@
 - Telegram 訊息怎麼一路流到 LLM、白名單驗證、設備 dispatch
 - 管理頁表單怎麼把資料寫進資料庫
 - 每個 API 與主要頁面的入口索引
+- 常用環境變數與關鍵術語速查
 
 ## 先修正幾個常見用語
 
@@ -48,7 +50,7 @@
 - `ORM`：可以先理解成「用 JavaScript 操作資料表的工具」。本專案用的是 `Prisma`。
 - `Server Action`：可以先理解成「從表單直接呼叫的伺服器函式」。
 - `webhook`：外部服務主動把資料打到你的某個 URL。這裡指 Telegram 打到 `/api/telegram/webhook`。
-- `provider`：這裡指 LLM 供應商或 OpenAI-compatible API 端點，不是 Telegram provider。
+- `provider`：這裡指可以接收自然語言並回傳 JSON 的 AI 語言模型服務。例如 OpenAI，或相容 OpenAI 格式的本地模型與 gateway，都可以當作 provider。
 - `registry`：這裡不是 npm registry，而是「設備與命令白名單資料庫」。
 
 ## 目前專案的一句話版本

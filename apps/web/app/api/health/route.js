@@ -4,7 +4,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "mytelebot",
-    version: "0.9.9",
+    version: "1.0.3",
     status: "ok",
     timestamp: new Date().toISOString()
   });

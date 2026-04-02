@@ -63,7 +63,29 @@ Telegram Cloud
 telegram -> llm -> registry -> dispatcher -> telegram reply
 ```
 
+上面這張圖是簡化版。
+實際程式碼裡，`Prisma` 不是直接憑空連到 SQLite，而是經過 [`apps/web/lib/prisma.js`](/home/mimas/projects/mytelebot/apps/web/lib/prisma.js) 建立 client，且目前使用 SQLite adapter。這一層會在 [04-data-model-and-prisma.md](./04-data-model-and-prisma.md) 裡詳細講。
+
 ## 4. 你可以把它先理解成 4 個子系統
+
+在進入子系統前，先補一個對初學者很重要的背景：
+
+這個專案雖然目前實際執行的主體只有一個網站，但目錄結構採用的是 `npm workspaces` 形式的 monorepo。
+
+也就是說：
+
+- 根目錄有一個 `package.json`
+- `apps/web/` 底下也有一個 `package.json`
+- 真正的網站程式碼放在 `apps/web/`
+- `packages/` 目前只是預留資料夾，實際上仍是空的
+
+所以你可以把它理解成：
+
+```text
+repo root = 工作區管理層
+apps/web = 現在真正的 Next.js 應用
+packages = 未來預留給共用模組
+```
 
 ### A. 管理後台
 
@@ -77,11 +99,17 @@ telegram -> llm -> registry -> dispatcher -> telegram reply
 主要檔案：
 
 - `apps/web/app/admin/*`
-- `apps/web/lib/auth/*`
+- `apps/web/lib/auth/bootstrap.js`
+- `apps/web/lib/auth/session.js`
 - `apps/web/lib/providers.js`
 - `apps/web/lib/registry.js`
 - `apps/web/lib/audit.js`
 - `apps/web/lib/system.js`
+
+這裡把登入模組放在 `auth/` 子資料夾，是因為它們共同構成一個獨立的小子系統：
+
+- `bootstrap.js` 負責第一個 admin 的初始化
+- `session.js` 負責 cookie session
 
 ### B. Telegram webhook 子系統
 

@@ -63,6 +63,21 @@ import { dispatchValidatedAction } from "@/lib/dispatcher";
 
 你就知道這個檔案的責任只是協調流程，不是把所有細節都寫在裡面。
 
+如果看到這種寫法：
+
+```js
+import "@/lib/server-env";
+```
+
+這叫做 side-effect import。
+
+意思是：
+
+- 不是要拿某個函式來用
+- 而是要先執行該模組的初始化邏輯
+
+在這個專案裡，通常是為了先載入 `.env`。
+
 ### 技巧 B：先找 return shape
 
 很多函式看起來很長，但你可以先找：
@@ -141,6 +156,38 @@ update schema.prisma
 -> update page/action if needed
 ```
 
+### 想確認自己有沒有改壞核心流程
+
+這個專案其實有一批測試腳本放在 `scripts/`。
+
+最常用的入口是根目錄 [`package.json`](/home/mimas/projects/mytelebot/package.json) 這些 script：
+
+- `npm run test:core`
+- `npm run test:unit:llm`
+- `npm run test:unit:registry`
+- `npm run test:unit:dispatcher`
+- `npm run test:unit:telegram`
+- `npm run test:integration:message-flow`
+- `npm run test:integration:webhook`
+
+如果你改了 `lib/*` 的核心邏輯，至少跑一次：
+
+```bash
+npm run test:core
+```
+
+`test:core` 不是單一測試檔，而是一個整合入口。
+目前它會把幾類核心測試一起跑起來，例如：
+
+- `test:contract:payload`
+- `test:fixtures:alias`
+- 各個 `test:unit:*`
+
+如果你要產出報告型結果，root `package.json` 也還有：
+
+- `npm run test:report:core`
+- `npm run test:report:message-flow`
+
 ## 6. 目前最值得重構但初學者先不用急著動的地方
 
 這些不是錯，而是目前仍偏單體、原型化：
@@ -190,3 +237,24 @@ update schema.prisma
 ```
 
 只要你能分別把這三條流程講清楚，對這個專案就已經不是「只看得懂表面」了。
+
+## 8. 速查表
+
+```text
+概念                 | 主要檔案
+bootstrap admin      | apps/web/lib/auth/bootstrap.js
+session cookie       | apps/web/lib/auth/session.js
+password hash        | apps/web/lib/password.js
+secret encryption    | apps/web/lib/encryption.js
+Prisma client        | apps/web/lib/prisma.js
+Prisma schema        | prisma/schema.prisma
+LLM parse            | apps/web/lib/llm.js
+LLM helper           | apps/web/lib/llm-utils.mjs
+registry validation  | apps/web/lib/registry.js
+registry helpers     | apps/web/lib/registry-utils.mjs
+device dispatch      | apps/web/lib/dispatcher.js
+dispatch helpers     | apps/web/lib/dispatcher-utils.mjs
+Telegram helper      | apps/web/lib/telegram.js
+Telegram utils       | apps/web/lib/telegram-utils.mjs
+system backup/metrics| apps/web/lib/system.js
+```

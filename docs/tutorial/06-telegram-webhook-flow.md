@@ -11,12 +11,13 @@
 1. 接收 Telegram update
 2. 檢查 allowlist
 3. dedupe update
-4. 載入 provider
-5. 呼叫 LLM 解析
-6. 驗證命令是否合法
-7. 執行 dispatch
-8. 寫 audit log
-9. 回 Telegram 訊息
+4. 過濾非文字訊息
+5. 載入 provider
+6. 呼叫 LLM 解析
+7. 驗證命令是否合法
+8. 執行 dispatch
+9. 寫 audit log
+10. 回 Telegram 訊息
 
 ## 2. 簡易流程圖
 
@@ -25,7 +26,9 @@ Telegram update
 -> verify webhook secret
 -> parse JSON body
 -> recordTelegramUpdate (dedupe)
+-> check confirm/cancel command
 -> findTelegramAccount (allowlist)
+-> reject non-text message if needed
 -> createTelegramAuditLog("received")
 -> getActiveProvider()
 -> buildLlmRegistryContext()
@@ -52,6 +55,13 @@ Telegram update
 
 - `x-telegram-bot-api-secret-token`
 
+要注意一個實作細節：
+
+- 如果 `.env` 裡沒有設定 `TELEGRAM_WEBHOOK_SECRET`
+- 目前 `verifyTelegramWebhookRequest()` 會直接放行
+
+這在本機開發可能方便，但在公開部署環境不安全，所以正式部署應該一定要設這個值。
+
 ### B. 解析 request body
 
 如果不是合法 JSON，就回 400。
@@ -68,7 +78,32 @@ function extractMessage(update) {
 
 代表它接受多種 Telegram update 型態，但最後只抓出主要訊息物件。
 
-## 4. dedupe 為什麼重要
+不過這個專案目前真正支援的是文字訊息。
+
+如果 `message.text` 不存在，route 會回覆類似：
+
+- 目前 MVP 只支援文字訊息
+
+也就是說：
+
+- 貼圖
+- 語音
+- 圖片 caption 以外的互動型資料
+
+都不會進入後面的 LLM 控制流程。
+
+## 4. 「dedupe」可以直接理解成去重
+
+這個專案裡的 `dedupe`，你可以直接理解成：
+
+- 去重
+- 重複過濾
+
+也就是：
+
+- 同一個 Telegram update 不要處理兩次
+
+## 5. dedupe 為什麼重要
 
 函式：
 
@@ -80,7 +115,7 @@ function extractMessage(update) {
 
 這很重要，因為 webhook 在現實環境中可能會遇到重送。
 
-## 5. allowlist 怎麼做
+## 6. allowlist 怎麼做
 
 函式：
 
@@ -94,7 +129,22 @@ function extractMessage(update) {
 
 所以 bot 並不是只要知道 webhook URL 就能用。
 
-## 6. provider 載入流程
+## 7. confirm / cancel 指令是在什麼時候被辨認
+
+在進入一般 LLM 解析前，route 會先檢查：
+
+```js
+const pendingActionCommand = parsePendingActionCommand(message.text);
+```
+
+這個函式在 [`apps/web/lib/telegram-utils.mjs`](/home/mimas/projects/mytelebot/apps/web/lib/telegram-utils.mjs) 裡，規則是：
+
+- `confirm TOKEN`
+- `cancel TOKEN`
+
+只要訊息符合這個格式，就不會進入 LLM 解析，而是直接走待確認命令流程。
+
+## 8. provider 載入流程
 
 函式：
 
@@ -117,7 +167,7 @@ function extractMessage(update) {
 - `extraHeaders`
 - 解密後的 `apiKey`
 
-## 7. LLM 不是直接亂做事，而是先拿 registry context
+## 9. LLM 不是直接亂做事，而是先拿 registry context
 
 函式：
 
@@ -151,7 +201,7 @@ available_targets
 
 這代表 LLM 不是在真空中猜，而是根據伺服器提供的白名單來回答。
 
-## 8. `parseCommandWithLlm()` 在做什麼
+## 10. `parseCommandWithLlm()` 在做什麼
 
 檔案：
 
@@ -173,6 +223,12 @@ user message + registry context
 - 可選 `response_format: { type: "json_object" }`
 - 解析失敗會丟出特定 error code
 
+`temperature: 0` 對初學者可以理解成：
+
+- 盡量讓模型回覆更穩定
+- 降低隨機性
+- 比較適合需要固定 JSON 結構的場景
+
 例如：
 
 - `provider_http_error`
@@ -182,9 +238,23 @@ user message + registry context
 
 這些錯誤最後都會被 webhook route 轉成較容易理解的 operator message。
 
-## 9. `intent` 為什麼重要
+這裡還有一個小細節：
+
+- provider 的 `baseUrl` 不一定都長一樣
+- 系統會自動嘗試 `/v1/chat/completions` 或 `/chat/completions`
+
+所以通常 provider 設定填的是 base URL，不是完整的 chat completions endpoint。
+
+## 11. `intent` 為什麼重要
 
 LLM 回來的內容不一定都是設備控制。
+
+在這個專案目前的 prompt 設計裡，常見 intent 有四種：
+
+- `device_control`
+- `device_query`
+- `chat`
+- `reject`
 
 route 裡會檢查：
 
@@ -199,9 +269,10 @@ if (intent !== "device_control") {
 也就是說：
 
 - 只有 `device_control` 才會進入真正控制流程
-- 否則只回安全的說明訊息
+- `device_query`、`chat`、`reject` 都不會 dispatch
+- 這些非控制型 intent 只會回安全的文字說明
 
-## 10. `validateLlmActions()` 是安全核心
+## 12. `validateLlmActions()` 是安全核心
 
 檔案：
 
@@ -221,7 +292,21 @@ if (intent !== "device_control") {
 
 LLM 說可以，不代表系統就相信。
 
-## 11. 為什麼還要檢查「原始文字是否明確提到設備」
+另外它還有兩個容易忽略的細節：
+
+### A. 跨 target 的裝置推斷
+
+如果 LLM 給的 `target_key` 錯了，但 `device_key` 在所有 active target 中剛好只匹配到一台裝置，系統會自動推斷正確的 target。
+
+如果匹配到多台，就不會自動推斷。
+
+### B. 從自然語言補參數
+
+如果某個 command 的 `argsSchemaJson` 裡有像 `state: ON/OFF` 這種欄位，而使用者原文有「打開」、「關閉」等字眼，系統會嘗試自動補上 `args.state`。
+
+這樣使用者不用每次都說得像 JSON 一樣精確。
+
+## 13. 為什麼還要檢查「原始文字是否明確提到設備」
 
 這是為了避免 LLM 幻覺亂配對。
 
@@ -238,7 +323,7 @@ LLM 說可以，不代表系統就相信。
 
 這個設計比單純「LLM JSON schema 正確」更安全。
 
-## 12. cooldown 與 confirmation
+## 14. cooldown 與 confirmation
 
 ### cooldown
 
@@ -260,7 +345,14 @@ LLM 說可以，不代表系統就相信。
 
 這就是高風險命令的二段式流程。
 
-## 13. dispatch 真正做什麼
+你也可以把這段理解成：
+
+```text
+一般訊息 -> 走 LLM parse
+confirm/cancel 訊息 -> 直接走 pending action 處理
+```
+
+## 15. dispatch 真正做什麼
 
 函式：
 
@@ -279,7 +371,7 @@ LLM 說可以，不代表系統就相信。
 
 所以真正對外打設備 API 的地方不是 webhook route，而是 dispatcher。
 
-## 14. 這條流程會寫哪些紀錄
+## 16. 這條流程會寫哪些紀錄
 
 ### `AuditLog`
 
@@ -311,7 +403,28 @@ LLM 說可以，不代表系統就相信。
 
 - 待確認命令
 
-## 15. 最值得初學者細讀的函式
+## 17. 第一次打開 `route.js` 應該怎麼讀
+
+[`apps/web/app/api/telegram/webhook/route.js`](/home/mimas/projects/mytelebot/apps/web/app/api/telegram/webhook/route.js) 是專案最大的單一檔案之一。
+
+第一次讀時不要從最上面一路硬啃。
+
+比較好的讀法是：
+
+1. 先找到最下面的 `export async function POST(request)`
+2. 先理解主流程
+3. 再往上回看輔助函式
+
+因為這個檔案前半部主要是：
+
+- 錯誤分類 helper
+- Telegram reply 格式化 helper
+- confirmation / cooldown 的訊息組裝 helper
+- `dispatchActionFlow()` 這種子流程函式
+
+真正的主入口還是 `POST(request)`。
+
+## 18. 最值得初學者細讀的函式
 
 ### `POST(request)` in webhook route
 

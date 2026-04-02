@@ -16,6 +16,11 @@
 - `apps/web/lib/auth/session.js`
 - `apps/web/lib/password.js`
 
+另外要注意兩個 Next.js / React 細節：
+
+- [`apps/web/app/login/page.js`](/home/mimas/projects/mytelebot/apps/web/app/login/page.js) 設了 `export const dynamic = "force-dynamic"`
+- [`apps/web/app/login/form.js`](/home/mimas/projects/mytelebot/apps/web/app/login/form.js) 是 `"use client"` 元件，並使用 React 19 的 `useActionState`
+
 ## 2. 這個專案沒有用第三方 auth 套件
 
 這個專案目前沒有使用 `Auth.js` 或 OAuth。
@@ -58,6 +63,8 @@ export async function ensureBootstrapAdmin() {
       status: "active"
     }
   });
+
+  return { ready: true, userId: admin.id };
 }
 ```
 
@@ -111,6 +118,13 @@ export async function loginAction(_previousState, formData) {
 5. 寫 session cookie
 6. 跳到 `/admin`
 
+實際程式碼還多做了兩件事：
+
+- 檢查 username/password 是否為空
+- 檢查 `user.status === "active"`
+
+教學片段為了可讀性有略縮，但這兩個保護條件在真實程式裡是存在的。
+
 ## 5. Session 是怎麼做的
 
 檔案：
@@ -122,6 +136,12 @@ export async function loginAction(_previousState, formData) {
 - 用 JSON 做 payload
 - 用 `SESSION_SECRET` 做 HMAC 簽章
 - 把 token 放到 cookie
+
+而且 session 有效期限是 7 天：
+
+```js
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+```
 
 核心概念：
 
@@ -142,6 +162,25 @@ session payload
 - `decodeSession()` 會回傳 `null`
 
 這不是完整企業級 session system，但對原型階段已經足夠清楚。
+
+另外一個初學者常問的問題是：
+
+既然 payload 只有 base64url 編碼，為什麼不加密？
+
+原因是這個 cookie 內沒有存：
+
+- 密碼
+- API key
+- 可直接濫用的 secret
+
+它存的是：
+
+- `userId`
+- `role`
+- `username`
+- `expiresAt`
+
+所以這裡主要重點是防篡改，不是防讀取。
 
 ## 7. `requireAdminSession()` 是保護後台的關鍵
 

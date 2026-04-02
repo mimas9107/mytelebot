@@ -64,6 +64,11 @@
 - target connection test
 - command dry run
 
+注意：
+
+- 這一頁的表單檔名是 `forms.js`，不是 `form.js`
+- 因為同一頁裡包含多個表單
+
 ### `/admin/telegram`
 
 檔案：
@@ -85,6 +90,14 @@
 用途：
 
 - 查看 audit logs
+
+這一頁目前只有 `page.js`，沒有 `form.js` 或 `actions.js`。
+
+原因是它目前是純讀取頁面：
+
+- 查詢資料
+- 顯示資料
+- 沒有表單提交流程
 
 ### `/admin/system`
 
@@ -118,6 +131,12 @@
 - `version`
 - `status`
 - `timestamp`
+
+補充：
+
+- 目前這個 endpoint 會回傳 `1.0.3`
+- 這和根目錄 [`package.json`](/home/mimas/projects/mytelebot/package.json) 與 [`apps/web/package.json`](/home/mimas/projects/mytelebot/apps/web/package.json) 的目前版號一致
+- 如果未來專案升版，這裡也要一起更新，否則 health API 顯示的版本會落後
 
 ### `GET /api/health/db`
 
@@ -226,6 +245,13 @@ await prisma.$queryRaw`SELECT 1`;
 - Server action：多半由 HTML form 直接呼叫，不是公開 API
 
 你可以把它們理解成：
+
+```text
+型別          | 例子                              | 觸發方式              | 主要回傳
+頁面 route    | /admin/providers/page.js          | 瀏覽器網址            | HTML / React UI
+API route     | /api/health/route.js              | fetch / 外部服務呼叫  | JSON
+Server action | /admin/providers/actions.js       | form submit           | 交還頁面狀態並 revalidate
+```
 
 ### 頁面 route
 
