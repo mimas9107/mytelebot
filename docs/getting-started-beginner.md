@@ -130,6 +130,10 @@ $APP_URL
 - 本機 Ollama gateway
 - 其他相容 `/chat/completions` 的服務
 
+如果你現在想直接接 Google Gemini，可先看：
+
+- [google-gemini-provider-setup.md](./google-gemini-provider-setup.md)
+
 ### Target
 這是設備 API 的目標伺服器。
 例如：
