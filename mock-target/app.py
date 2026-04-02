@@ -411,6 +411,17 @@ async def get_info(x_mock_admin_token: str | None = Header(default=None)) -> dic
     }
 
 
+@app.get("/_mock/ping")
+async def public_ping() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "public": True,
+        "service": SETTINGS.service_name,
+        "version": APP_VERSION,
+        "timestamp": utc_timestamp(),
+    }
+
+
 @app.get("/_mock/config")
 async def get_config(x_mock_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
     assert_admin_access(x_mock_admin_token)

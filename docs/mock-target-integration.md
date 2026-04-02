@@ -465,3 +465,37 @@ Args schema JSON: {"type":"object","properties":{"temperature":{"type":"number",
 Confirmation required: false
 Cooldown seconds: 0
 ```
+
+## 16. 如果 mock-target 需要 keep alive
+
+如果你把 mock-target 部署在 Render free service，可能會遇到閒置後 spin down。
+
+這時建議：
+
+- 不要用 `/health` 給外部 cron-job 定時戳
+- 因為 `/health` 會跟著 target auth 一起驗證
+- 當你把 target 升級成 `bearer` 後，外部 cron-job 不帶 token 就會一直 `401`
+
+比較好的做法是改打：
+
+```text
+https://mock-target.onrender.com/_mock/ping
+```
+
+這個 endpoint 的特性是：
+
+- 會回 `200`
+- 不需要 target bearer auth
+- 適合給 uptime monitor / cron-job 使用
+
+回傳大概會像：
+
+```json
+{
+  "ok": true,
+  "public": true,
+  "service": "mytelebot-mock-target",
+  "version": "0.1.0",
+  "timestamp": "2026-04-03T00:00:00Z"
+}
+```

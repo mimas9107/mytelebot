@@ -141,6 +141,28 @@ curl http://127.0.0.1:8000/health
 
 查看 mock-target 的基本狀態與可用端點。
 
+### `GET /_mock/ping`
+
+公開 ping endpoint。
+
+用途：
+
+- 給 cron-job / uptime monitor 定時戳
+- 避免 Render free service 因閒置而 spin down
+- 不檢查 target bearer auth
+
+回傳範例：
+
+```json
+{
+  "ok": true,
+  "public": true,
+  "service": "mytelebot-mock-target",
+  "version": "0.1.0",
+  "timestamp": "2026-04-03T00:00:00Z"
+}
+```
+
 ### `GET /_mock/config`
 
 查看目前 response mode。
@@ -303,6 +325,7 @@ uvicorn app:app --host 0.0.0.0 --port $PORT
 
 1. 部署 mock-target 到 Render
 2. 用 `GET /health` 先確認活著
+   如果你是給 cron-job 用，請改打 `GET /_mock/ping`
 3. 在 MyTeleBot 建立 `Target`
 4. 用 `Test target connection`
 5. 建立 `Device` / `Command`
