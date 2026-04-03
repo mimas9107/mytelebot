@@ -122,8 +122,9 @@ Start Command: npm run start
 
 補充：
 - repo 目前會在 build 前自動執行 `prisma generate`
-- repo 目前會在 start 前自動執行 `prisma migrate deploy`
+- repo 目前會在 start 前自動執行 Prisma migration deploy 包裝腳本
 - 第一次使用新的 Render Persistent Disk 時，資料表會在 service 啟動前建立
+- 如果你沿用的是舊 SQLite 檔案，且裡面已有資料表但沒有 `_prisma_migrations`，repo 也會先自動 baseline 再繼續 migrate
 
 ### 4.4 Region
 選離你使用地最近的區域。

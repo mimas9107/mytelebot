@@ -37,8 +37,9 @@
 - Build Command: `npm install && npm run build`
 - Repo 內建置腳本已包含 `prisma generate`，不需要另外在 Render 手動追加
 - Start Command: `npm run start`
-- Repo 啟動腳本已包含 `prisma migrate deploy`
+- Repo 啟動腳本已包含 Prisma migration deploy 包裝器
 - 第一次啟動空白 SQLite 檔案時，會自動建立資料表
+- 若 SQLite 檔案已存在資料表、但缺少 `_prisma_migrations` 歷史表，啟動腳本會先做一次 baseline，再繼續 `migrate deploy`
 
 ### 付費版 Persistent Disk
 - 掛載路徑建議：`/var/data`
@@ -53,6 +54,11 @@
 注意：
 - 不要使用 `file:./data/mytelebot.sqlite`
 - 原因是 `prisma migrate deploy` 與 `next start` 的工作目錄不同，相對路徑可能指到不同檔案
+
+補充：
+- 如果你是從較早期版本升上來，SQLite 可能已經有資料表，但當時還沒有 Prisma migration history
+- 這種情況在 Render start 階段常見錯誤是 `P3005 The database schema is not empty`
+- repo 目前已內建 baseline 保護腳本，會在偵測到「非空 SQLite + 無 `_prisma_migrations`」時，自動把現有 migration 標記為已套用，再繼續部署
 
 ## 3. 環境變數建議
 

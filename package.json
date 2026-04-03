@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "npm run dev --workspace @mytelebot/web",
     "prisma:generate": "prisma generate",
-    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:deploy": "node scripts/run_prisma_migrate_deploy.cjs",
     "postinstall": "npm run prisma:generate",
     "prebuild": "npm run prisma:generate",
     "prestart": "npm run prisma:migrate:deploy",
