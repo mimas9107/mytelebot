@@ -7,6 +7,7 @@
   --muted: #6b6255;
   --accent: #b44c2f;
   --accent-2: #1b6b72;
+  --value-accent: #255d9c;
   --shadow: 0 24px 80px rgba(34, 26, 18, 0.12);
 }
 
@@ -253,6 +254,8 @@ body {
 .metric-card strong {
   font-size: clamp(2rem, 5vw, 3rem);
   line-height: 1;
+  color: var(--value-accent);
+  font-weight: 800;
 }
 
 .metric-card.metric-card-compact strong {
@@ -346,6 +349,8 @@ body {
 .provider-head h3 {
   margin: 0;
   font-size: 1.1rem;
+  color: var(--value-accent);
+  font-weight: 800;
 }
 
 .provider-head p {
@@ -396,6 +401,8 @@ body {
 .provider-meta dd {
   margin: 0;
   word-break: break-word;
+  color: var(--value-accent);
+  font-weight: 800;
 }
 
 .provider-meta-list {
