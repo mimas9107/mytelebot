@@ -112,6 +112,10 @@ export default async function AuditPage({ searchParams }) {
         </article>
       </section>
 
+      <p className="card-link">
+        <Link href="/admin">Back to dashboard</Link>
+      </p>
+
       <section className="card audit-filter-card">
         <h2>Filters</h2>
         <form method="GET" className="provider-form">
@@ -169,10 +173,6 @@ export default async function AuditPage({ searchParams }) {
           </div>
         </form>
       </section>
-
-      <p className="card-link">
-        <Link href="/admin">Back to dashboard</Link>
-      </p>
 
       <section className="card">
         <h2>Recent entries</h2>

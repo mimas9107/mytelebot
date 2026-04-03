@@ -87,6 +87,10 @@ export default async function SystemPage() {
         </article>
       </section>
 
+      <p className="card-link">
+        <Link href="/admin">Back to dashboard</Link>
+      </p>
+
       <section className="card">
         <h2>Operational metrics</h2>
         <div className="metric-grid">
@@ -216,10 +220,6 @@ export default async function SystemPage() {
               ))}
             </div>
         )}
-
-        <p className="card-link">
-          <Link href="/admin">Back to dashboard</Link>
-        </p>
       </section>
 
       <section className="card">
