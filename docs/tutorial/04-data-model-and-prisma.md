@@ -479,8 +479,17 @@ SQLite 是目前的實際資料庫。
 例如 Render free demo：
 
 ```bash
-DATABASE_URL=file:/opt/render/project/src/data/mytelebot.sqlite
+DATABASE_URL=file:/tmp/data/mytelebot.sqlite
+SQLITE_FILE_PATH=/tmp/data/mytelebot.sqlite
+SQLITE_BACKUP_DIR=/tmp/data/backups
 ```
+
+但要非常注意：
+
+- `/tmp/...` 只是 Render 免費版 demo 比較不容易踩到舊檔案殘留的做法
+- 它不是持久化儲存
+- instance restart / redeploy / rebuild 後都要假設 SQLite 與 backups 會被清空
+- 如果要真正保留資料，應改用 Persistent Disk 例如 `/var/data/...`，或改用外部資料庫
 
 ## 14. 資料模型傳遞流程
 

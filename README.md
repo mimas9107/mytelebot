@@ -41,6 +41,7 @@ Version: `1.0.3`
 - Structured operational metrics and recent operational events
 - SQLite-to-PostgreSQL migration path documentation
 - SQLite restore UI with pre-restore backup and integrity checks
+- SQLite backup upload flow with optional immediate restore
 - Target / Device / Command 三層 CRUD 與狀態切換
 - Telegram allowlist 管理
 - Telegram allowlist 與 admin user link
@@ -184,6 +185,13 @@ MOCK_TELEGRAM_PORT=19000 npm run mock:telegram
 - 還原前會先做 `PRAGMA integrity_check`
 - 還原前會自動建立一份 pre-restore rollback backup
 - 還原後再次做 SQLite integrity validation
+- 可由 `/admin/system` 上傳 `.sqlite` 備份檔，再選擇是否立即還原
+
+## Render SQLite notes
+- Render 目前仍以 `npm run start` 啟動，`prestart` 會先執行 [`scripts/run_prisma_migrate_deploy.cjs`](/home/mimas/projects/mytelebot/scripts/run_prisma_migrate_deploy.cjs)
+- 這個包裝腳本會處理 SQLite 舊資料庫沒有 `_prisma_migrations` 的 baseline 情境
+- 也會清理「只有 runtime-only tables 卻被誤寫 baseline」的假 migration 歷史狀態
+- Render 免費版 demo 若使用 `/tmp/data/...`，請假設 SQLite 與 backups 在 restart / redeploy 後都會被清空
 
 ## 目前 webhook 行為
 `POST /api/telegram/webhook`

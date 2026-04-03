@@ -5,6 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 const Database = require("better-sqlite3");
+const IGNORABLE_TABLES = new Set(["_prisma_migrations", "app_runtime_settings"]);
 
 function runPrismaMigrateDeploy() {
   return spawnSync("npx", ["prisma", "migrate", "deploy"], {
@@ -48,7 +49,10 @@ function inspectSqliteDatabase(filePath) {
   if (!fs.existsSync(filePath)) {
     return {
       exists: false,
+      tableNames: [],
+      domainTableNames: [],
       hasTables: false,
+      hasDomainTables: false,
       hasMigrationsTable: false
     };
   }
@@ -66,10 +70,14 @@ function inspectSqliteDatabase(filePath) {
       .all();
 
     const tableNames = rows.map((row) => row.name);
+    const domainTableNames = tableNames.filter((name) => !IGNORABLE_TABLES.has(name));
 
     return {
       exists: true,
+      tableNames,
+      domainTableNames,
       hasTables: tableNames.length > 0,
+      hasDomainTables: domainTableNames.length > 0,
       hasMigrationsTable: tableNames.includes("_prisma_migrations")
     };
   } finally {
@@ -77,11 +85,47 @@ function inspectSqliteDatabase(filePath) {
   }
 }
 
+function cleanupEffectivelyEmptySqliteDatabase(filePath, databaseState) {
+  if (
+    !databaseState.exists ||
+    databaseState.hasDomainTables ||
+    databaseState.tableNames.length === 0
+  ) {
+    return false;
+  }
+
+  const removableTables = databaseState.tableNames.filter((name) => IGNORABLE_TABLES.has(name));
+
+  if (removableTables.length === 0) {
+    return false;
+  }
+
+  console.log(
+    `[prisma-baseline] cleaning runtime-only tables from effectively empty SQLite database at ${filePath}`
+  );
+
+  const database = new Database(filePath, { fileMustExist: true });
+
+  try {
+    for (const tableName of removableTables) {
+      database.exec(`DROP TABLE IF EXISTS "${tableName}"`);
+    }
+  } finally {
+    database.close();
+  }
+
+  return true;
+}
+
 function baselineExistingSqliteDatabase() {
   const sqliteFilePath = resolveSqlitePath();
   const databaseState = inspectSqliteDatabase(sqliteFilePath);
 
-  if (!databaseState.exists || !databaseState.hasTables || databaseState.hasMigrationsTable) {
+  if (
+    !databaseState.exists ||
+    !databaseState.hasDomainTables ||
+    databaseState.hasMigrationsTable
+  ) {
     return false;
   }
 
@@ -160,6 +204,9 @@ function baselineExistingSqliteDatabase() {
 }
 
 function main() {
+  const sqliteFilePath = resolveSqlitePath();
+  cleanupEffectivelyEmptySqliteDatabase(sqliteFilePath, inspectSqliteDatabase(sqliteFilePath));
+
   const firstAttempt = runPrismaMigrateDeploy();
 
   if (firstAttempt.status === 0) {

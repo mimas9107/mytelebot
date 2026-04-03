@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import {
   createBackupAction,
   restoreBackupAction,
+  uploadBackupAction,
   updateRuntimeLoggingAction
 } from "@/app/admin/system/actions";
 
@@ -50,6 +51,40 @@ export function BackupRestoreForm({ filename }) {
 
       <button type="submit" className="button-danger" disabled={isPending}>
         {isPending ? "Restoring..." : "Restore backup"}
+      </button>
+    </form>
+  );
+}
+
+export function BackupUploadForm() {
+  const [state, formAction, isPending] = useActionState(
+    uploadBackupAction,
+    { ok: false, error: "", message: "", details: "" }
+  );
+
+  return (
+    <form action={formAction} className="provider-form">
+      <p className="auth-copy">
+        Upload a `.sqlite` backup into the configured backup directory. You can optionally restore
+        it immediately after validation.
+      </p>
+
+      {state.message ? <p className="form-success">{state.message}</p> : null}
+      {state.details ? <p className="form-success">{state.details}</p> : null}
+      {state.error ? <p className="form-error">{state.error}</p> : null}
+
+      <label className="provider-field">
+        <span>Backup file</span>
+        <input type="file" name="backupFile" accept=".sqlite" required />
+      </label>
+
+      <label className="provider-toggle">
+        <input type="checkbox" name="restoreAfterUpload" defaultChecked={false} />
+        <span>Restore immediately after upload</span>
+      </label>
+
+      <button type="submit" className="button-primary" disabled={isPending}>
+        {isPending ? "Uploading..." : "Upload backup"}
       </button>
     </form>
   );

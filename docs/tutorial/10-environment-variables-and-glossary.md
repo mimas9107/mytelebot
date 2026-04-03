@@ -21,8 +21,14 @@
 例子：
 
 ```bash
-DATABASE_URL=file:/opt/render/project/src/data/mytelebot.sqlite
+DATABASE_URL=file:/tmp/data/mytelebot.sqlite
 ```
+
+補充：
+
+- Render 免費版 demo 現在較建議用 `/tmp/data/...`
+- 但它不是持久化位置
+- restart / redeploy / rebuild 後都要假設資料會被清空
 
 ### `SQLITE_FILE_PATH`
 
@@ -32,11 +38,29 @@ DATABASE_URL=file:/opt/render/project/src/data/mytelebot.sqlite
 
 在這個專案裡，主要還是以 `DATABASE_URL` 為準。
 
+例如：
+
+```bash
+SQLITE_FILE_PATH=/tmp/data/mytelebot.sqlite
+```
+
 ### `SQLITE_BACKUP_DIR`
 
 用途：
 
 - system backup/restore 的備份目錄
+
+例如：
+
+```bash
+SQLITE_BACKUP_DIR=/tmp/data/backups
+```
+
+補充：
+
+- 如果 backup 目錄也放在 `/tmp/...`
+- 那麼備份檔同樣會在 restart / redeploy 後消失
+- 這只能算 demo 模式下的暫時備份，不是持久化備份方案
 
 ### `ADMIN_USER`
 

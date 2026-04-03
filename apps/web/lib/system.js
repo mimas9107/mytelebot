@@ -34,6 +34,26 @@ function formatBackupFilename() {
   return `mytelebot-${stamp}.sqlite`;
 }
 
+function formatUploadedBackupFilename(originalName) {
+  const now = new Date();
+  const stamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+    "-",
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0"),
+    String(now.getSeconds()).padStart(2, "0")
+  ].join("");
+
+  const safeOriginal = path
+    .basename(String(originalName || "uploaded.sqlite"))
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Za-z0-9._-]/g, "_");
+
+  return `uploaded-${stamp}-${safeOriginal}`;
+}
+
 function resolveBackupPath(filename) {
   const backupDirPath = getBackupDirPath();
   const normalized = path.basename(String(filename || "").trim());
@@ -204,6 +224,83 @@ export async function restoreSystemBackup(user, filename) {
     sourcePath,
     restoredSize: restoredStats.size,
     preRestoreBackup: preRestoreBackup.filename
+  };
+}
+
+export async function uploadSystemBackup(user, file, options = {}) {
+  if (!file || typeof file !== "object" || typeof file.arrayBuffer !== "function") {
+    throw new Error("Backup upload is missing");
+  }
+
+  const originalName = String(file.name || "").trim();
+
+  if (!originalName.endsWith(".sqlite")) {
+    throw new Error("Uploaded backup must be a .sqlite file");
+  }
+
+  const size = Number(file.size || 0);
+
+  if (!Number.isFinite(size) || size <= 0) {
+    throw new Error("Uploaded backup file is empty");
+  }
+
+  const backupDirPath = getBackupDirPath();
+  await fs.mkdir(backupDirPath, { recursive: true });
+
+  const filename = formatUploadedBackupFilename(originalName);
+  const destinationPath = path.join(backupDirPath, filename);
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  await fs.writeFile(destinationPath, buffer);
+
+  try {
+    validateSqliteFile(destinationPath);
+  } catch (error) {
+    await fs.rm(destinationPath, { force: true });
+    throw error;
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      actorType: "admin",
+      actorId: user.id,
+      userId: user.id,
+      rawInput: `upload backup ${filename}`,
+      executionStatus: "backup_uploaded",
+      errorMessage: null,
+      parsedResultJson: JSON.stringify({
+        upload: {
+          originalName,
+          filename,
+          destinationPath,
+          size: buffer.byteLength
+        }
+      })
+    }
+  });
+
+  if (!options.restoreAfterUpload) {
+    return {
+      uploaded: {
+        originalName,
+        filename,
+        destinationPath,
+        size: buffer.byteLength
+      },
+      restored: null
+    };
+  }
+
+  const restored = await restoreSystemBackup(user, filename);
+
+  return {
+    uploaded: {
+      originalName,
+      filename,
+      destinationPath,
+      size: buffer.byteLength
+    },
+    restored
   };
 }
 

@@ -6,6 +6,7 @@ import {
   listSystemBackups
 } from "@/lib/system";
 import {
+  BackupUploadForm,
   BackupCreateForm,
   BackupRestoreForm,
   RuntimeLoggingForm
@@ -143,11 +144,17 @@ export default async function SystemPage() {
         </article>
 
         <article className="card">
+          <h2>Upload backup</h2>
+          <BackupUploadForm />
+        </article>
+
+        <article className="card">
           <h2>Restore safeguards</h2>
           <ul className="provider-meta provider-meta-list">
             <li>Only `.sqlite` files inside the configured backup directory are allowed.</li>
             <li>The selected backup is validated with `PRAGMA integrity_check` before restore.</li>
             <li>A pre-restore rollback backup is created automatically.</li>
+            <li>Uploaded backups can be imported first, or uploaded and restored immediately.</li>
           </ul>
         </article>
 

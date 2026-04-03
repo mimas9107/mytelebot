@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Added
+- Added SQLite backup upload flow in `/admin/system`, with optional immediate restore after upload.
+
+### Changed
+- Updated beginner tutorial and environment reference documents so Render free demo examples now use `/tmp/data/...` consistently and explicitly warn that restart / redeploy may clear both SQLite and backups.
+- Updated `README.md` with the backup upload flow and current Render SQLite startup notes.
+
+### Fixed
+- Fixed SQLite migration bootstrap so `prestart` on Render still runs through `npm run start`, but now avoids false baseline states caused by runtime-only tables such as `app_runtime_settings`.
+- Fixed the SQLite migrate wrapper to recover from a bad local/ephemeral baseline state where `_prisma_migrations` existed but application tables like `User` had never actually been created.
+
 ## 1.0.3 - 2026-04-01
 
 ### Added

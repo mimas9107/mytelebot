@@ -5,6 +5,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import {
   createSystemBackup,
   restoreSystemBackup,
+  uploadSystemBackup,
   updateRuntimeLoggingSettings
 } from "@/lib/system";
 
@@ -56,6 +57,38 @@ export async function restoreBackupAction(_previousState, formData) {
       error: "",
       message: `Backup restored: ${backup.filename}`,
       details: `rollback backup=${backup.preRestoreBackup}`
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: toMessage(error),
+      message: "",
+      details: ""
+    };
+  }
+}
+
+export async function uploadBackupAction(_previousState, formData) {
+  const user = await requireAdminSession();
+
+  try {
+    const backupFile = formData.get("backupFile");
+    const restoreAfterUpload = String(formData.get("restoreAfterUpload") || "") === "on";
+    const result = await uploadSystemBackup(user, backupFile, { restoreAfterUpload });
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/system");
+    revalidatePath("/admin/audit");
+
+    return {
+      ok: true,
+      error: "",
+      message: restoreAfterUpload
+        ? `Backup uploaded and restored: ${result.uploaded.filename}`
+        : `Backup uploaded: ${result.uploaded.filename}`,
+      details: restoreAfterUpload
+        ? `rollback backup=${result.restored?.preRestoreBackup || "unknown"}`
+        : `size=${result.uploaded.size} bytes`
     };
   } catch (error) {
     return {
