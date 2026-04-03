@@ -6,10 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 - Added SQLite backup upload flow in `/admin/system`, with optional immediate restore after upload.
+- Added admin-only SQLite backup download flow from `/admin/system`.
 
 ### Changed
 - Updated beginner tutorial and environment reference documents so Render free demo examples now use `/tmp/data/...` consistently and explicitly warn that restart / redeploy may clear both SQLite and backups.
-- Updated `README.md` with the backup upload flow and current Render SQLite startup notes.
+- Updated `README.md` with the backup upload/download flow and current Render SQLite startup notes.
 
 ### Fixed
 - Fixed SQLite migration bootstrap so `prestart` on Render still runs through `npm run start`, but now avoids false baseline states caused by runtime-only tables such as `app_runtime_settings`.

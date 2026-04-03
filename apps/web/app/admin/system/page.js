@@ -186,6 +186,13 @@ export default async function SystemPage() {
                     <h3>{backup.name}</h3>
                     <p>{prettyDate(backup.modifiedAt)}</p>
                   </div>
+                  <div className="provider-actions">
+                    <a
+                      href={`/api/admin/system/backups/${encodeURIComponent(backup.name)}/download`}
+                    >
+                      Download
+                    </a>
+                  </div>
                 </div>
 
                   <dl className="provider-meta">

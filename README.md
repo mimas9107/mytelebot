@@ -42,6 +42,7 @@ Version: `1.0.3`
 - SQLite-to-PostgreSQL migration path documentation
 - SQLite restore UI with pre-restore backup and integrity checks
 - SQLite backup upload flow with optional immediate restore
+- SQLite backup download flow for admin-only export
 - Target / Device / Command 三層 CRUD 與狀態切換
 - Telegram allowlist 管理
 - Telegram allowlist 與 admin user link
@@ -185,6 +186,7 @@ MOCK_TELEGRAM_PORT=19000 npm run mock:telegram
 - 還原前會先做 `PRAGMA integrity_check`
 - 還原前會自動建立一份 pre-restore rollback backup
 - 還原後再次做 SQLite integrity validation
+- 可由 `/admin/system` 下載既有 backup 檔案
 - 可由 `/admin/system` 上傳 `.sqlite` 備份檔，再選擇是否立即還原
 
 ## Render SQLite notes

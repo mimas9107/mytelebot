@@ -227,6 +227,40 @@ export async function restoreSystemBackup(user, filename) {
   };
 }
 
+export async function getSystemBackupDownload(user, filename) {
+  const { path: sourcePath, filename: normalizedFilename } = resolveBackupPath(filename);
+
+  await fs.access(sourcePath);
+  validateSqliteFile(sourcePath);
+
+  const [buffer, stats] = await Promise.all([fs.readFile(sourcePath), fs.stat(sourcePath)]);
+
+  await prisma.auditLog.create({
+    data: {
+      actorType: "admin",
+      actorId: user.id,
+      userId: user.id,
+      rawInput: `download backup ${normalizedFilename}`,
+      executionStatus: "backup_downloaded",
+      errorMessage: null,
+      parsedResultJson: JSON.stringify({
+        download: {
+          filename: normalizedFilename,
+          sourcePath,
+          size: stats.size
+        }
+      })
+    }
+  });
+
+  return {
+    filename: normalizedFilename,
+    sourcePath,
+    size: stats.size,
+    buffer
+  };
+}
+
 export async function uploadSystemBackup(user, file, options = {}) {
   if (!file || typeof file !== "object" || typeof file.arrayBuffer !== "function") {
     throw new Error("Backup upload is missing");
