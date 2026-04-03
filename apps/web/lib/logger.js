@@ -108,6 +108,10 @@ function summarizeMetaForActivity(meta = {}) {
   const summary = {};
 
   for (const [key, value] of Object.entries(meta)) {
+    if (key === "lastActivity") {
+      continue;
+    }
+
     if (
       value === null ||
       value === undefined ||
@@ -136,7 +140,15 @@ function summarizeMetaForActivity(meta = {}) {
   return summary;
 }
 
+function shouldTrackAsLastActivity(event) {
+  return event !== "process_heartbeat";
+}
+
 function setLastActivity(event, level, meta = {}) {
+  if (!shouldTrackAsLastActivity(event)) {
+    return;
+  }
+
   globalThis.__mytelebotLastActivity = {
     ts: new Date().toISOString(),
     level,
