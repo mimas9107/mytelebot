@@ -258,6 +258,117 @@ API key: <你的 Gemini API key>
 Extra headers JSON:
 Capability profile: openai_compatible
 JSON output mode: json_object
+
+## 9. 免費 API key 大概夠用嗎
+
+對「家庭自用」這種規模來說，通常夠。
+
+先講結論：
+
+- 如果你只是用 Telegram 傳日常家電控制指令
+- 例如開燈、關燈、開冷氣、調整溫度、啟動電鍋
+
+那麼 `Gemini 2.5 Flash` 的免費 API key，通常不是先被 token 用量打爆，而是先碰到 request 數量限制。
+
+### 為什麼
+
+本專案每次 webhook 命令解析，大致只會做一次 LLM request。
+
+prompt 內容主要包含：
+
+1. 固定的 parser 指令
+2. 目前 registry 中的 target / device / command 白名單
+3. 使用者當次 Telegram 訊息
+
+這段邏輯可以參考：
+
+- [`apps/web/lib/llm-utils.mjs`](/home/mimas/projects/mytelebot/apps/web/lib/llm-utils.mjs)
+- [`apps/web/lib/registry.js`](/home/mimas/projects/mytelebot/apps/web/lib/registry.js)
+
+### 以家庭自用情境粗估
+
+假設你家裡未來有：
+
+- 客廳冷氣
+- 客廳落地燈
+- 臥室燈
+- 臥室電風扇
+- 廚房電鍋
+
+而且每台設備大概有 2 到 4 個命令。
+
+那在這種規模下，單次 Telegram webhook 大概可以先粗估為：
+
+- input tokens：約 `350 ~ 900`
+- output tokens：約 `50 ~ 150`
+- 單次總量：約 `500 ~ 1,000`
+
+保守一點，直接把它當成：
+
+- **每次控制命令約 1,000 tokens**
+
+### 一天大概會花多少
+
+如果你一天的操作像這樣：
+
+- 出門前關燈、關冷氣、關風扇
+- 回家前開冷氣、開電鍋
+- 到家開客廳燈
+- 晚上再調幾次冷氣
+- 睡前把燈、風扇、冷氣關掉
+
+這種家庭使用量，大概很容易落在：
+
+- `10 ~ 20` 次 Telegram 指令 / 天
+
+那 token 用量大概會是：
+
+- `10 次 * 1,000 tokens = 10,000 tokens/day`
+- `20 次 * 1,000 tokens = 20,000 tokens/day`
+
+對家庭自用來說，這通常還算很輕。
+
+### 真正比較容易先撞到什麼
+
+在這個專案目前規模下，通常先碰到的比較像是：
+
+- 每分鐘 request 上限
+- 每日 request 上限
+
+而不是 token 本身。
+
+也就是說：
+
+- 如果你只是自用、一天十幾次控制
+- 通常不用太擔心 token 爆掉
+
+### 什麼情況 token 會開始變重要
+
+以下情況會讓單次 prompt 膨脹：
+
+- target / device / command 越來越多
+- alias 設得很多
+- 你把很多普通聊天也一起送到同一個 provider
+- 你希望 LLM 同時做更複雜的自然語言理解
+
+到那時候，單次 webhook 的 token 才會明顯上升。
+
+### 實務建議
+
+如果你現在只是：
+
+- 一個家庭
+- 幾台家電
+- Telegram 控制為主
+
+那麼可以先放心使用 `Gemini 2.5 Flash` 免費 key 做原型驗證。
+
+你更該優先注意的，通常不是 token，而是：
+
+- target API 穩定性
+- Render free instance 是否會被回收
+- SQLite 資料是否持久化
+- command schema / confirmation / cooldown 是否設合理
 Require strict JSON-only output: on
 Capabilities JSON:
 Set as active default provider: on

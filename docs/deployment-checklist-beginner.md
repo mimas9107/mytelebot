@@ -138,8 +138,10 @@ Start Command: npm run start
 ### 4.6 免費版或付費版先選清楚
 - 若你是 Render 付費版：使用 `Persistent Disk`，路徑用 `/var/data/...`
 - 若你是 Render 免費版：沒有 `Persistent Disk`，只能當 demo 環境
-- 免費版請使用絕對 SQLite 路徑，例如 `/opt/render/project/src/data/mytelebot.sqlite`
+- 免費版請使用絕對 SQLite 路徑，建議 `/tmp/data/mytelebot.sqlite`
 - 免費版不要使用 `file:./data/mytelebot.sqlite`，因為 build / migrate / runtime 的工作目錄可能不同
+- 免費版不要把 SQLite 優先放在 `/opt/render/project/src/...`，那裡可能殘留舊 deploy 建出的資料檔
+- 免費版若使用 `/tmp/...`，要直接理解成「service restart / redeploy 後資料可能被清空」
 
 ## 5. Persistent Disk 檢查
 這是新手最容易漏掉、也最容易導致資料消失的地方。
@@ -203,9 +205,9 @@ NODE_ENV=production
 APP_URL=https://your-render-domain.onrender.com
 RENDER_EXTERNAL_URL=https://your-render-domain.onrender.com
 
-DATABASE_URL=file:/opt/render/project/src/data/mytelebot.sqlite
-SQLITE_FILE_PATH=/opt/render/project/src/data/mytelebot.sqlite
-SQLITE_BACKUP_DIR=/opt/render/project/src/data/backups
+DATABASE_URL=file:/tmp/data/mytelebot.sqlite
+SQLITE_FILE_PATH=/tmp/data/mytelebot.sqlite
+SQLITE_BACKUP_DIR=/tmp/data/backups
 
 ADMIN_USER=...
 ADMIN_PASSWORD=...
@@ -215,6 +217,11 @@ APP_ENCRYPTION_KEY=...
 TELEGRAM_TOKEN=...
 TELEGRAM_WEBHOOK_SECRET=...
 ```
+
+這組設定的實際意思：
+- 它讓免費版比較容易部署成功
+- 但它不是持久化資料庫
+- 只要 service restart / redeploy / rebuild，就要假設 SQLite 與 backups 都可能被清空
 
 ### 新手最常犯錯
 - `APP_URL` 還留 `localhost`

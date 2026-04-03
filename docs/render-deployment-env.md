@@ -48,12 +48,16 @@
 
 ### 免費版 demo 路徑
 - 建議使用絕對路徑
-- 建議 SQLite 路徑：`/opt/render/project/src/data/mytelebot.sqlite`
-- 建議備份目錄：`/opt/render/project/src/data/backups`
+- 建議 SQLite 路徑：`/tmp/data/mytelebot.sqlite`
+- 建議備份目錄：`/tmp/data/backups`
 
 注意：
 - 不要使用 `file:./data/mytelebot.sqlite`
 - 原因是 `prisma migrate deploy` 與 `next start` 的工作目錄不同，相對路徑可能指到不同檔案
+- Render 免費版若把 SQLite 放在 `/opt/render/project/src/...`，可能殘留舊 deploy 建出的資料檔
+- 這類舊 SQLite 若已有資料表、但沒有 `_prisma_migrations`，後續 deploy 很容易撞到 Prisma baseline / migrate 問題
+- `/tmp/...` 在免費版 demo 比較適合作為「每次啟動都從乾淨狀態開始」的暫時路徑
+- 但 `/tmp/...` 只適合 demo：service restart、redeploy、instance 重建後，資料都可能被清空
 
 補充：
 - 如果你是從較早期版本升上來，SQLite 可能已經有資料表，但當時還沒有 Prisma migration history
@@ -92,9 +96,9 @@ NODE_ENV=production
 APP_URL=https://your-render-domain.onrender.com
 RENDER_EXTERNAL_URL=https://your-render-domain.onrender.com
 
-DATABASE_URL=file:/opt/render/project/src/data/mytelebot.sqlite
-SQLITE_FILE_PATH=/opt/render/project/src/data/mytelebot.sqlite
-SQLITE_BACKUP_DIR=/opt/render/project/src/data/backups
+DATABASE_URL=file:/tmp/data/mytelebot.sqlite
+SQLITE_FILE_PATH=/tmp/data/mytelebot.sqlite
+SQLITE_BACKUP_DIR=/tmp/data/backups
 
 ADMIN_USER=
 ADMIN_PASSWORD=
@@ -107,6 +111,11 @@ TELEGRAM_WEBHOOK_SECRET=
 
 HOME_GATEWAY_SHARED_SECRET=
 ```
+
+重點提醒：
+- 這組 `/tmp/...` 設定的意思是「暫時可用、方便部署」
+- 不代表資料會保留
+- 只要 Render service restart / redeploy / rebuild / instance replacement，就要假設資料可能被清空
 
 ### 保留但不建議作為 SQLite 本體帳密
 若你一定要保留這兩個欄位，建議改為備份 API 用途，而非 SQLite 本體：
