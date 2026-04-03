@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/encryption";
+import { logInfo, logWarn, summarizeText } from "@/lib/logger";
 import {
   applyArgsToTemplate,
   buildHmacSignature,
@@ -124,11 +125,24 @@ export async function renderValidatedAction(action) {
   };
 }
 
-export async function dispatchValidatedAction(action) {
+export async function dispatchValidatedAction(action, options = {}) {
   const rendered = await renderValidatedAction(action);
   const { target, command, timeoutMs, request } = rendered;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const traceId = options.traceId || null;
+  const startedAt = Date.now();
+
+  logInfo("dispatch_request_start", {
+    traceId,
+    targetKey: target.targetKey,
+    commandKey: command.commandKey,
+    method: request.method,
+    url: request.url,
+    headers: request.headers,
+    payload: request.payload,
+    timeoutMs
+  });
 
   try {
     try {
@@ -147,6 +161,14 @@ export async function dispatchValidatedAction(action) {
       const responseJson = parseResponseBody(responseText);
 
       if (response.ok && responseJson && responseJson.ok === false) {
+        logWarn("dispatch_business_error", {
+          traceId,
+          targetKey: target.targetKey,
+          commandKey: command.commandKey,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          responsePreview: summarizeText(responseText, 500)
+        });
         return {
           ok: false,
           status: response.status,
@@ -161,6 +183,16 @@ export async function dispatchValidatedAction(action) {
           responseText
         };
       }
+
+      logInfo(response.ok ? "dispatch_request_success" : "dispatch_http_error", {
+        traceId,
+        targetKey: target.targetKey,
+        commandKey: command.commandKey,
+        status: response.status,
+        ok: response.ok,
+        durationMs: Date.now() - startedAt,
+        responsePreview: summarizeText(responseText, 500)
+      });
 
       return {
         ok: response.ok,
@@ -179,6 +211,14 @@ export async function dispatchValidatedAction(action) {
       };
     } catch (error) {
       const isTimeout = error instanceof Error && error.name === "AbortError";
+
+      logWarn(isTimeout ? "dispatch_network_timeout" : "dispatch_network_error", {
+        traceId,
+        targetKey: target.targetKey,
+        commandKey: command.commandKey,
+        durationMs: Date.now() - startedAt,
+        error
+      });
 
       return {
         ok: false,

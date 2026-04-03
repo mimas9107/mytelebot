@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { requireAdminSession } from "@/lib/auth/session";
-import { listOperationalOverview, listSystemBackups } from "@/lib/system";
+import {
+  getRuntimeLoggingSettings,
+  listOperationalOverview,
+  listSystemBackups
+} from "@/lib/system";
 import {
   BackupCreateForm,
-  BackupRestoreForm
+  BackupRestoreForm,
+  RuntimeLoggingForm
 } from "@/app/admin/system/form";
 
 export const dynamic = "force-dynamic";
@@ -40,8 +45,13 @@ export default async function SystemPage() {
   await requireAdminSession();
   const [
     { sqliteFilePath, backupDirPath, database, backups },
-    operationalOverview
-  ] = await Promise.all([listSystemBackups(), listOperationalOverview()]);
+    operationalOverview,
+    runtimeSettings
+  ] = await Promise.all([
+    listSystemBackups(),
+    listOperationalOverview(),
+    getRuntimeLoggingSettings()
+  ]);
 
   return (
     <main className="dashboard-shell">
@@ -122,6 +132,11 @@ export default async function SystemPage() {
       </section>
 
       <section className="card-grid provider-layout">
+        <article className="card">
+          <h2>Runtime logging</h2>
+          <RuntimeLoggingForm verboseServerLogs={runtimeSettings.verboseServerLogs} />
+        </article>
+
         <article className="card">
           <h2>Create backup</h2>
           <BackupCreateForm />

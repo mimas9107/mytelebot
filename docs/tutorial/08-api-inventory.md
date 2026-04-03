@@ -111,6 +111,14 @@
 
 - backup / restore
 - operational metrics
+- runtime logging toggle
+
+補充：
+
+- 這一頁現在除了 backup / restore，也能切換 `Runtime logging`
+- 這個開關會寫進 SQLite runtime settings
+- 不需要重啟 server 或重新部署
+- 關掉後仍保留 `warn` / `error`，只會關掉大部分 `info` 級詳細 logs
 
 ## 2. API 清單
 
@@ -228,6 +236,7 @@ await prisma.$queryRaw`SELECT 1`;
 
 - `createBackupAction`
 - `restoreBackupAction`
+- `updateRuntimeLoggingAction`
 
 ### Telegram admin actions
 

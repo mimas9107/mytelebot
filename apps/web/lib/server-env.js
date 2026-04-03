@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import dotenv from "dotenv";
+import { logInfo, registerProcessHandlers } from "@/lib/logger";
 
 const candidates = [
   path.resolve(process.cwd(), ".env"),
@@ -14,4 +15,14 @@ export const workspaceRoot = envPath ? path.dirname(envPath) : path.resolve(proc
 
 if (envPath) {
   dotenv.config({ path: envPath });
+}
+
+registerProcessHandlers();
+
+if (!globalThis.__mytelebotEnvLogged) {
+  globalThis.__mytelebotEnvLogged = true;
+  logInfo("server_env_loaded", {
+    envPath,
+    workspaceRoot
+  });
 }

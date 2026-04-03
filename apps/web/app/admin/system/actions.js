@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/lib/auth/session";
-import { createSystemBackup, restoreSystemBackup } from "@/lib/system";
+import {
+  createSystemBackup,
+  restoreSystemBackup,
+  updateRuntimeLoggingSettings
+} from "@/lib/system";
 
 function toMessage(error) {
   if (error instanceof Error) {
@@ -52,6 +56,33 @@ export async function restoreBackupAction(_previousState, formData) {
       error: "",
       message: `Backup restored: ${backup.filename}`,
       details: `rollback backup=${backup.preRestoreBackup}`
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: toMessage(error),
+      message: "",
+      details: ""
+    };
+  }
+}
+
+export async function updateRuntimeLoggingAction(_previousState, formData) {
+  const user = await requireAdminSession();
+
+  try {
+    const verboseServerLogs = String(formData.get("verboseServerLogs") || "") === "on";
+    const result = await updateRuntimeLoggingSettings(user, { verboseServerLogs });
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/system");
+    revalidatePath("/admin/audit");
+
+    return {
+      ok: true,
+      error: "",
+      message: `Verbose server logs ${result.verboseServerLogs ? "enabled" : "disabled"}.`,
+      details: `updatedAt=${result.updatedAt}`
     };
   } catch (error) {
     return {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { listRegistryData, testTargetConnection } from "@/lib/registry";
+import { logInfo, logWarn } from "@/lib/logger";
 
 export async function GET() {
   const { targets } = await listRegistryData();
@@ -35,6 +36,17 @@ export async function GET() {
   );
 
   const healthyCount = checks.filter((item) => item.ok).length;
+
+  logInfo("health_targets_summary", {
+    route: "/api/health/targets",
+    total: checks.length,
+    healthy: healthyCount,
+    unhealthy: checks.length - healthyCount
+  });
+
+  for (const item of checks.filter((entry) => !entry.ok)) {
+    logWarn("health_target_unhealthy", item);
+  }
 
   return NextResponse.json({
     ok: true,

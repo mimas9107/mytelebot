@@ -258,6 +258,35 @@ TELEGRAM_WEBHOOK_SECRET=...
 直接打：
 - `/api/health`
 - `/api/health/db`
+
+### 8.3 如果 Render logs 太安靜
+目前專案已經支援一個「不用重啟、不用 redeploy」的 runtime logging 開關。
+
+位置：
+
+- `/admin/system`
+- 區塊名稱：`Runtime logging`
+
+用途：
+
+- 開啟後，server 會輸出較完整的 `info` 級 JSON logs
+- 包含 webhook 收到、LLM request、validation、dispatch、health check 等流程
+- 關閉後，會停止大部分 `info` logs，避免 Render logs 被洗版
+- `warn` 與 `error` 不會被關掉，所以真正的錯誤仍會保留
+
+什麼時候應該打開：
+
+- 你懷疑 Render service 有 silent restart
+- Telegram webhook 看起來沒反應
+- Provider / Target 看起來有打到，但不知道卡在哪一段
+- 你想在 Render logs 用同一個 `traceId` 串一整筆 webhook 流程
+
+建議做法：
+
+1. 先到 `/admin/system` 開啟 `Runtime logging`
+2. 重跑一次同樣的操作
+3. 再去看 Render logs
+4. 問題排完後可再關掉，避免 logs 太多
 - `/api/health/targets`
 - `/api/metrics`
 

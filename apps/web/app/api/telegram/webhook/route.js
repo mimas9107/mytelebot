@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import {
+  createTraceId,
+  logError,
+  logInfo,
+  logWarn,
+  requestLogMeta,
+  summarizeText
+} from "@/lib/logger";
+import {
   createPendingTelegramAction,
   createTelegramAuditLog,
   findTelegramAccount,
@@ -245,6 +253,8 @@ function buildWebhookResponse(overrides = {}) {
 }
 
 async function dispatchActionFlow({
+  traceId,
+  requestStartedAt,
   telegramUserId,
   chatId,
   text,
@@ -254,10 +264,27 @@ async function dispatchActionFlow({
   action,
   pendingActionId
 }) {
-  const dispatchResult = await dispatchValidatedAction(action);
+  const dispatchResult = await dispatchValidatedAction(action, { traceId });
   const dispatchReason = dispatchResult.ok
     ? buildReasonPayload("dispatch_success", "Command dispatched successfully.")
     : classifyDispatchFailure(dispatchResult);
+
+  logInfo(dispatchResult.ok ? "telegram_dispatch_success" : "telegram_dispatch_failed", {
+    traceId,
+    durationMs: requestStartedAt ? Date.now() - requestStartedAt : null,
+    telegramUserId,
+    providerId: providerId || null,
+    targetKey: action.target.targetKey,
+    deviceKey: action.device.deviceKey,
+    commandKey: action.command.commandKey,
+    args: action.args,
+    dispatch: {
+      ok: dispatchResult.ok,
+      status: dispatchResult.status,
+      errorType: dispatchResult.errorType,
+      errorMessage: dispatchResult.errorMessage
+    }
+  });
 
   await createTelegramAuditLog({
     telegramUserId,
@@ -337,7 +364,19 @@ async function dispatchActionFlow({
 }
 
 export async function POST(request) {
+  const traceId = createTraceId("tg");
+  const startedAt = Date.now();
+
+  logInfo("telegram_webhook_received", {
+    traceId,
+    ...requestLogMeta(request)
+  });
+
   if (!verifyTelegramWebhookRequest(request)) {
+    logWarn("telegram_webhook_unauthorized", {
+      traceId,
+      ...requestLogMeta(request)
+    });
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
@@ -346,12 +385,19 @@ export async function POST(request) {
   try {
     update = await request.json();
   } catch {
+    logWarn("telegram_webhook_invalid_json", {
+      traceId
+    });
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
   const message = extractMessage(update);
 
   if (!message?.from?.id || !message?.chat?.id) {
+    logInfo("telegram_webhook_ignored_missing_message", {
+      traceId,
+      updateId: update?.update_id || null
+    });
     return NextResponse.json({
       ok: true,
       ignored: true,
@@ -361,6 +407,15 @@ export async function POST(request) {
 
   const telegramUserId = String(message.from.id);
   const text = typeof message.text === "string" ? message.text : "[non-text message]";
+
+  logInfo("telegram_message_extracted", {
+    traceId,
+    updateId: update?.update_id || null,
+    telegramUserId,
+    chatId: String(message.chat.id),
+    textPreview: summarizeText(text, 160)
+  });
+
   const dedupe = await recordTelegramUpdate({
     updateId: update.update_id,
     telegramUserId,
@@ -368,6 +423,11 @@ export async function POST(request) {
   });
 
   if (dedupe.duplicate) {
+    logInfo("telegram_update_duplicate", {
+      traceId,
+      updateId: update?.update_id || null,
+      telegramUserId
+    });
     await createTelegramAuditLog({
       telegramUserId,
       text,
@@ -389,6 +449,11 @@ export async function POST(request) {
   const account = await findTelegramAccount(telegramUserId);
 
   if (!account || account.status !== "active") {
+    logWarn("telegram_account_not_allowlisted", {
+      traceId,
+      telegramUserId,
+      accountStatus: account?.status || null
+    });
     await createTelegramAuditLog({
       telegramUserId,
       text,
@@ -402,7 +467,11 @@ export async function POST(request) {
         text: "This Telegram account is not allowed to use this bot."
       });
     } catch (error) {
-      console.error("telegram unauthorized reply failed", error);
+      logError("telegram_unauthorized_reply_failed", {
+        traceId,
+        telegramUserId,
+        error
+      });
     }
 
     return NextResponse.json({
@@ -423,6 +492,11 @@ export async function POST(request) {
   });
 
   if (typeof message.text !== "string" || !message.text.trim()) {
+    logInfo("telegram_non_text_ignored", {
+      traceId,
+      telegramUserId,
+      chatId: String(message.chat.id)
+    });
     await sendTelegramMessage({
       chatId: message.chat.id,
       text: "Only text messages are supported in the current MVP."
@@ -441,12 +515,22 @@ export async function POST(request) {
   const pendingActionCommand = parsePendingActionCommand(message.text);
 
   if (pendingActionCommand) {
+    logInfo("telegram_pending_command_received", {
+      traceId,
+      telegramUserId,
+      verb: pendingActionCommand.verb
+    });
     const pending = await findPendingTelegramAction({
       token: pendingActionCommand.token,
       telegramUserId
     });
 
     if (!pending) {
+      logWarn("telegram_pending_action_not_found", {
+        traceId,
+        telegramUserId,
+        verb: pendingActionCommand.verb
+      });
       const reason = buildReasonPayload("pending_action_not_found", "找不到待確認命令。");
       await sendTelegramMessage({
         chatId: message.chat.id,
@@ -464,6 +548,12 @@ export async function POST(request) {
     }
 
     if (pending.status !== "pending") {
+      logInfo("telegram_pending_action_not_pending", {
+        traceId,
+        telegramUserId,
+        pendingActionId: pending.id,
+        pendingStatus: pending.status
+      });
       const reason = buildReasonPayload("pending_action_not_pending", "這筆待確認命令已經處理過。");
       await sendTelegramMessage({
         chatId: message.chat.id,
@@ -482,6 +572,11 @@ export async function POST(request) {
 
     if (pending.expiresAt.getTime() <= Date.now()) {
       await updatePendingTelegramActionStatus(pending.id, "expired", null);
+      logInfo("telegram_pending_action_expired", {
+        traceId,
+        telegramUserId,
+        pendingActionId: pending.id
+      });
       const reason = buildReasonPayload("pending_action_expired", "待確認命令已過期。");
       await sendTelegramMessage({
         chatId: message.chat.id,
@@ -500,6 +595,11 @@ export async function POST(request) {
 
     if (pendingActionCommand.verb === "cancel") {
       await updatePendingTelegramActionStatus(pending.id, "cancelled", "cancelledAt");
+      logInfo("telegram_confirmation_cancelled", {
+        traceId,
+        telegramUserId,
+        pendingActionId: pending.id
+      });
       const reason = buildReasonPayload("confirmation_cancelled", "待確認命令已取消。");
       await sendTelegramMessage({
         chatId: message.chat.id,
@@ -520,6 +620,12 @@ export async function POST(request) {
     const hydrated = await hydrateValidatedAction(storedAction);
 
     if (!hydrated.ok) {
+      logWarn("telegram_confirmation_invalid", {
+        traceId,
+        telegramUserId,
+        pendingActionId: pending.id,
+        validationReason: hydrated.reason
+      });
       const reason = classifyValidationReason(hydrated.reason);
       await sendTelegramMessage({
         chatId: message.chat.id,
@@ -539,6 +645,12 @@ export async function POST(request) {
     const cooldown = await checkCommandCooldown(hydrated.action.command.id);
 
     if (!cooldown.ok) {
+      logInfo("telegram_confirmation_command_on_cooldown", {
+        traceId,
+        telegramUserId,
+        pendingActionId: pending.id,
+        remainingSeconds: cooldown.remainingSeconds || 0
+      });
       const reason = buildCooldownReason(cooldown.remainingSeconds || 0);
       await sendTelegramMessage({
         chatId: message.chat.id,
@@ -560,8 +672,15 @@ export async function POST(request) {
     }
 
     await updatePendingTelegramActionStatus(pending.id, "confirmed", "confirmedAt");
+    logInfo("telegram_confirmation_confirmed", {
+      traceId,
+      telegramUserId,
+      pendingActionId: pending.id
+    });
 
     return dispatchActionFlow({
+      traceId,
+      requestStartedAt: startedAt,
       telegramUserId,
       chatId: message.chat.id,
       text,
@@ -579,6 +698,10 @@ export async function POST(request) {
     provider = await getActiveProvider();
 
     if (!provider) {
+      logWarn("telegram_provider_missing", {
+        traceId,
+        telegramUserId
+      });
       await createTelegramAuditLog({
         telegramUserId,
         text,
@@ -601,7 +724,11 @@ export async function POST(request) {
       );
     }
   } catch (error) {
-    console.error("telegram provider resolution failed", error);
+    logError("telegram_provider_resolution_failed", {
+      traceId,
+      telegramUserId,
+      error
+    });
 
     await createTelegramAuditLog({
       telegramUserId,
@@ -632,10 +759,16 @@ export async function POST(request) {
     parsed = await parseCommandWithLlm({
       provider,
       message: message.text,
-      context
+      context,
+      traceId
     });
   } catch (error) {
-    console.error("telegram parse flow failed", error);
+    logError("telegram_parse_flow_failed", {
+      traceId,
+      telegramUserId,
+      providerKey: provider.providerKey,
+      error
+    });
     const parseFailure = classifyParseError(error);
 
     await createTelegramAuditLog({
@@ -657,7 +790,11 @@ export async function POST(request) {
         })
       });
     } catch (replyError) {
-      console.error("telegram error reply failed", replyError);
+      logError("telegram_error_reply_failed", {
+        traceId,
+        telegramUserId,
+        error: replyError
+      });
     }
 
     return NextResponse.json(
@@ -672,10 +809,27 @@ export async function POST(request) {
 
   const intent = String(parsed.intent || "reject");
 
+  logInfo("telegram_parse_completed", {
+    traceId,
+    telegramUserId,
+    providerKey: provider.providerKey,
+    intent,
+    actionsCount: Array.isArray(parsed.actions) ? parsed.actions.length : 0,
+    durationMs: Date.now() - startedAt
+  });
+
   if (intent !== "device_control") {
     const responseText = String(
       parsed.response_text || "I cannot map this request to a safe device command."
     );
+
+    logInfo("telegram_non_control_result", {
+      traceId,
+      telegramUserId,
+      providerKey: provider.providerKey,
+      intent,
+      responsePreview: summarizeText(responseText, 200)
+    });
 
     await createTelegramAuditLog({
       telegramUserId,
@@ -713,6 +867,13 @@ export async function POST(request) {
   });
 
   if (!validation.ok) {
+    logWarn("telegram_validation_failed", {
+      traceId,
+      telegramUserId,
+      providerKey: provider.providerKey,
+      validationReason: validation.reason,
+      parsedIntent: intent
+    });
     const validationReason = classifyValidationReason(validation.reason);
 
     await createTelegramAuditLog({
@@ -750,9 +911,25 @@ export async function POST(request) {
 
   const { target, device, command, args } = validation.action;
 
+  logInfo("telegram_validation_succeeded", {
+    traceId,
+    telegramUserId,
+    providerKey: provider.providerKey,
+    targetKey: target.targetKey,
+    deviceKey: device.deviceKey,
+    commandKey: command.commandKey,
+    args
+  });
+
   const cooldown = await checkCommandCooldown(command.id);
 
   if (!cooldown.ok) {
+    logInfo("telegram_command_on_cooldown", {
+      traceId,
+      telegramUserId,
+      commandKey: command.commandKey,
+      remainingSeconds: cooldown.remainingSeconds || 0
+    });
     const reason = buildCooldownReason(cooldown.remainingSeconds || 0);
 
     await createTelegramAuditLog({
@@ -798,6 +975,14 @@ export async function POST(request) {
   });
 
   if (command.confirmationRequired) {
+    logInfo("telegram_confirmation_required", {
+      traceId,
+      telegramUserId,
+      providerKey: provider.providerKey,
+      targetKey: target.targetKey,
+      deviceKey: device.deviceKey,
+      commandKey: command.commandKey
+    });
     const pending = await createPendingTelegramAction({
       telegramUserId,
       chatId: message.chat.id,
@@ -839,6 +1024,8 @@ export async function POST(request) {
   }
 
   return dispatchActionFlow({
+    traceId,
+    requestStartedAt: startedAt,
     telegramUserId,
     chatId: message.chat.id,
     text,

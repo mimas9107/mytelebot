@@ -4,6 +4,10 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { prisma } from "@/lib/prisma";
 import { workspaceRoot } from "@/lib/server-env";
+import {
+  listRuntimeSettings,
+  setVerboseServerLogsEnabled
+} from "@/lib/runtime-settings";
 
 function getSqliteFilePath() {
   const configured = process.env.SQLITE_FILE_PATH || path.join(".", "data", "mytelebot.sqlite");
@@ -331,5 +335,35 @@ export async function listOperationalOverview() {
       provider: event.provider,
       user: event.user
     }))
+  };
+}
+
+export async function getRuntimeLoggingSettings() {
+  return listRuntimeSettings();
+}
+
+export async function updateRuntimeLoggingSettings(user, { verboseServerLogs }) {
+  const result = setVerboseServerLogsEnabled(Boolean(verboseServerLogs));
+
+  await prisma.auditLog.create({
+    data: {
+      actorType: "admin",
+      actorId: user.id,
+      userId: user.id,
+      rawInput: `set verbose_server_logs=${result.enabled}`,
+      executionStatus: "runtime_logging_updated",
+      errorMessage: null,
+      parsedResultJson: JSON.stringify({
+        settings: {
+          verboseServerLogs: result.enabled,
+          updatedAt: result.updatedAt
+        }
+      })
+    }
+  });
+
+  return {
+    verboseServerLogs: result.enabled,
+    updatedAt: result.updatedAt
   };
 }

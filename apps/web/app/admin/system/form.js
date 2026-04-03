@@ -3,7 +3,8 @@
 import { useActionState } from "react";
 import {
   createBackupAction,
-  restoreBackupAction
+  restoreBackupAction,
+  updateRuntimeLoggingAction
 } from "@/app/admin/system/actions";
 
 export function BackupCreateForm() {
@@ -49,6 +50,35 @@ export function BackupRestoreForm({ filename }) {
 
       <button type="submit" className="button-danger" disabled={isPending}>
         {isPending ? "Restoring..." : "Restore backup"}
+      </button>
+    </form>
+  );
+}
+
+export function RuntimeLoggingForm({ verboseServerLogs }) {
+  const [state, formAction, isPending] = useActionState(
+    updateRuntimeLoggingAction,
+    { ok: false, error: "", message: "", details: "" }
+  );
+
+  return (
+    <form action={formAction} className="provider-form">
+      <p className="auth-copy">
+        Toggle verbose `info`-level server logs without restarting or redeploying. `warn` and
+        `error` logs stay enabled even when verbose logging is off.
+      </p>
+
+      {state.message ? <p className="form-success">{state.message}</p> : null}
+      {state.details ? <p className="form-success">{state.details}</p> : null}
+      {state.error ? <p className="form-error">{state.error}</p> : null}
+
+      <label className="provider-toggle">
+        <input type="checkbox" name="verboseServerLogs" defaultChecked={verboseServerLogs} />
+        <span>Enable verbose server logs</span>
+      </label>
+
+      <button type="submit" className="button-primary" disabled={isPending}>
+        {isPending ? "Saving..." : "Save logging settings"}
       </button>
     </form>
   );

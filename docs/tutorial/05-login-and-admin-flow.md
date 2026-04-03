@@ -257,6 +257,29 @@ Page / Form component
 
 真正的業務邏輯是在 `apps/web/lib/providers.js`。
 
+### 以 system 頁為例
+
+入口：
+
+- `apps/web/app/admin/system/page.js`
+- `apps/web/app/admin/system/form.js`
+- `apps/web/app/admin/system/actions.js`
+- `apps/web/lib/system.js`
+- `apps/web/lib/runtime-settings.js`
+
+這一頁除了 backup / restore，現在還有一個很實用的後台能力：
+
+- 直接切換 `Runtime logging`
+
+它的特性是：
+
+- 寫進 SQLite
+- 不需要重啟 server
+- 不需要重新部署
+- 開啟後能看到較完整的 Render server logs
+
+這對雲端除錯很重要，因為你可以先維持正式設定，只有在需要排錯時才打開詳細 logs。
+
 ## 10. `revalidatePath()` 是什麼
 
 這是 Next.js 的快取更新機制。
