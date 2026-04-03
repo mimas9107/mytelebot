@@ -1,5 +1,9 @@
 import { getVerboseServerLogsEnabled } from "@/lib/runtime-settings";
 
+function toMegabytes(value) {
+  return Math.round((Number(value || 0) / (1024 * 1024)) * 100) / 100;
+}
+
 function truncateText(value, maxLength = 300) {
   if (value === null || value === undefined) {
     return value;
@@ -100,7 +104,79 @@ function normalizeMeta(meta) {
   return output;
 }
 
+function summarizeMetaForActivity(meta = {}) {
+  const summary = {};
+
+  for (const [key, value] of Object.entries(meta)) {
+    if (
+      value === null ||
+      value === undefined ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      summary[key] = value;
+      continue;
+    }
+
+    if (typeof value === "string") {
+      summary[key] = truncateText(value, 200);
+      continue;
+    }
+
+    if (key === "error") {
+      summary[key] = serializeError(value);
+      continue;
+    }
+
+    if (typeof value === "object") {
+      summary[key] = truncateText(JSON.stringify(value), 300);
+    }
+  }
+
+  return summary;
+}
+
+function setLastActivity(event, level, meta = {}) {
+  globalThis.__mytelebotLastActivity = {
+    ts: new Date().toISOString(),
+    level,
+    event,
+    traceId: meta.traceId || null,
+    summary: summarizeMetaForActivity(meta)
+  };
+}
+
+export function getLastActivity() {
+  return globalThis.__mytelebotLastActivity || null;
+}
+
+export function getProcessTelemetry() {
+  const memory = process.memoryUsage();
+
+  return {
+    pid: process.pid,
+    nodeEnv: process.env.NODE_ENV || "unknown",
+    uptimeSec: Math.round(process.uptime()),
+    memory: {
+      rssMb: toMegabytes(memory.rss),
+      heapTotalMb: toMegabytes(memory.heapTotal),
+      heapUsedMb: toMegabytes(memory.heapUsed),
+      externalMb: toMegabytes(memory.external),
+      arrayBuffersMb: toMegabytes(memory.arrayBuffers)
+    }
+  };
+}
+
+export function logMemorySnapshot(event, meta = {}) {
+  logInfo(event, {
+    ...meta,
+    ...getProcessTelemetry()
+  });
+}
+
 function log(level, event, meta = {}) {
+  setLastActivity(event, level, meta);
+
   if (level === "info" && !getVerboseServerLogsEnabled()) {
     return;
   }
@@ -176,16 +252,81 @@ export function registerProcessHandlers() {
   globalThis.__mytelebotProcessHandlersRegistered = true;
 
   process.on("uncaughtException", (error) => {
-    logError("process_uncaught_exception", { error });
+    logError("process_uncaught_exception", {
+      error,
+      ...getProcessTelemetry(),
+      lastActivity: getLastActivity()
+    });
   });
 
   process.on("unhandledRejection", (reason) => {
-    logError("process_unhandled_rejection", { error: serializeError(reason) });
+    logError("process_unhandled_rejection", {
+      error: serializeError(reason),
+      ...getProcessTelemetry(),
+      lastActivity: getLastActivity()
+    });
   });
 
+  process.on("warning", (warning) => {
+    logWarn("process_warning", {
+      warning: serializeError(warning),
+      ...getProcessTelemetry(),
+      lastActivity: getLastActivity()
+    });
+  });
+
+  process.on("beforeExit", (code) => {
+    logWarn("process_before_exit", {
+      code,
+      ...getProcessTelemetry(),
+      lastActivity: getLastActivity()
+    });
+  });
+
+  process.on("exit", (code) => {
+    const payload = JSON.stringify({
+      ts: new Date().toISOString(),
+      level: "warn",
+      event: "process_exit",
+      code,
+      ...getProcessTelemetry(),
+      lastActivity: getLastActivity()
+    });
+    console.warn(payload);
+  });
+
+  process.on("SIGTERM", () => {
+    logWarn("process_signal", {
+      signal: "SIGTERM",
+      ...getProcessTelemetry(),
+      lastActivity: getLastActivity()
+    });
+    process.exit(0);
+  });
+
+  process.on("SIGINT", () => {
+    logWarn("process_signal", {
+      signal: "SIGINT",
+      ...getProcessTelemetry(),
+      lastActivity: getLastActivity()
+    });
+    process.exit(0);
+  });
+
+  if (!globalThis.__mytelebotProcessHeartbeat) {
+    globalThis.__mytelebotProcessHeartbeat = setInterval(() => {
+      logInfo("process_heartbeat", {
+        ...getProcessTelemetry(),
+        lastActivity: getLastActivity()
+      });
+    }, 60_000);
+
+    globalThis.__mytelebotProcessHeartbeat.unref?.();
+  }
+
   logInfo("process_handlers_registered", {
-    pid: process.pid,
-    nodeEnv: process.env.NODE_ENV || "unknown"
+    ...getProcessTelemetry(),
+    lastActivity: getLastActivity()
   });
 }
 

@@ -3,6 +3,7 @@ import {
   createTraceId,
   logError,
   logInfo,
+  logMemorySnapshot,
   logWarn,
   requestLogMeta,
   summarizeText
@@ -286,6 +287,16 @@ async function dispatchActionFlow({
     }
   });
 
+  logMemorySnapshot("telegram_dispatch_memory", {
+    traceId,
+    telegramUserId,
+    providerId: providerId || null,
+    targetKey: action.target.targetKey,
+    deviceKey: action.device.deviceKey,
+    commandKey: action.command.commandKey,
+    dispatchOk: dispatchResult.ok
+  });
+
   await createTelegramAuditLog({
     telegramUserId,
     text,
@@ -370,6 +381,10 @@ export async function POST(request) {
   logInfo("telegram_webhook_received", {
     traceId,
     ...requestLogMeta(request)
+  });
+
+  logMemorySnapshot("telegram_webhook_memory_start", {
+    traceId
   });
 
   if (!verifyTelegramWebhookRequest(request)) {
